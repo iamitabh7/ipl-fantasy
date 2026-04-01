@@ -1,110 +1,339 @@
 import streamlit as st
 
-st.set_page_config(page_title="IPL 2026 Fantasy", page_icon="🏏", layout="centered")
+st.set_page_config(
+    page_title="IPL 2026 Fantasy",
+    page_icon="🏏",
+    layout="centered"
+)
 
-st.title("IPL 2026 Fantasy 🏏")
-st.caption("Amitabh vs Shivam · Season Tracker")
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
 
-st.write("---")
+html, body, [class*="css"] {
+    font-family: 'DM Sans', sans-serif;
+    background-color: #0a0a0f;
+    color: #f0f0f5;
+}
+.main { background-color: #0a0a0f; }
+.block-container { padding-top: 2rem; padding-bottom: 4rem; }
+h1, h2, h3 { font-family: 'Rajdhani', sans-serif !important; letter-spacing: 0.02em; }
 
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="🟡 Amitabh", value="898 pts", delta="leads by 370")
-with col2:
-    st.metric(label="🔵 Shivam", value="528 pts")
+.top-banner {
+    background: linear-gradient(135deg, #1a1200 0%, #0a0a0f 60%);
+    border: 1px solid rgba(245,166,35,0.3);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 8px;
+}
+.brand-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: #f5a623;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+.main-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 38px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1;
+    margin: 0;
+}
+.main-title span { color: #f5a623; }
+.subtitle { font-size: 13px; color: #7070a0; margin-top: 6px; }
 
-st.write("---")
+.score-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: center;
+    margin: 20px 0;
+}
+.score-card {
+    background: #13131a;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 20px 18px;
+}
+.score-card.leader {
+    background: linear-gradient(135deg, #1a1200 0%, #13131a 100%);
+    border-color: #f5a623;
+}
+.score-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: #7070a0;
+    text-transform: uppercase;
+}
+.score-card.leader .score-name { color: #f5a623; }
+.score-pts {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 44px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1;
+    margin-top: 4px;
+}
+.score-card.leader .score-pts { color: #f5a623; }
+.score-label { font-size: 11px; color: #404060; margin-top: 3px; }
+.score-wins { font-size: 12px; color: #7070a0; margin-top: 10px; }
+.vs-col { text-align: center; padding: 0 14px; }
+.vs-text {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #404060;
+    letter-spacing: 0.1em;
+}
+.gap-pill {
+    display: inline-block;
+    background: rgba(245,166,35,0.1);
+    border: 1px solid rgba(245,166,35,0.4);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: #f5a623;
+    margin-top: 8px;
+    white-space: nowrap;
+}
 
-with st.expander("📋 Scoring Rules"):
+.section-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: #7070a0;
+    text-transform: uppercase;
+    margin: 28px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.rules-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rules-table th {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: #7070a0;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.rules-table td {
+    padding: 8px 12px;
+    color: #c0c0d0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.rules-table td:last-child { color: #f5a623; font-weight: 500; text-align: right; }
+
+.player-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid rgba(255,255,255,0.06); }
+.player-col { padding: 14px 18px; }
+.player-col:first-child { border-right: 1px solid rgba(255,255,255,0.06); }
+.team-head {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: #7070a0;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+.team-head.winner { color: #2ecc71; }
+.p-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.p-row:last-of-type { border-bottom: none; }
+.p-name { font-size: 12px; color: #c0c0d0; display: flex; align-items: center; gap: 5px; }
+.cap-badge {
+    font-size: 9px;
+    background: rgba(245,166,35,0.15);
+    color: #f5a623;
+    border: 1px solid rgba(245,166,35,0.4);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-weight: 600;
+}
+.p-pts { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 600; color: #ffffff; }
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 8px;
+    margin-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.total-label { font-size: 11px; color: #7070a0; }
+.total-val { font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; color: #f5a623; }
+
+.match-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 10px 0;
+}
+.result-score {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+}
+.result-label { font-size: 12px; color: #7070a0; }
+
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ── TOP BANNER ──
+st.markdown("""
+<div class="top-banner">
+    <div class="brand-label">IPL 2026 · Fantasy League</div>
+    <div class="main-title">The <span>Rivalry</span></div>
+    <div class="subtitle">Amitabh vs Shivam &nbsp;·&nbsp; 4 matches played</div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── SCOREBOARD ──
+st.markdown("""
+<div class="score-grid">
+    <div class="score-card leader">
+        <div class="score-name">Amitabh</div>
+        <div class="score-pts">898</div>
+        <div class="score-label">total points</div>
+        <div class="score-wins">3W · 1L</div>
+    </div>
+    <div class="vs-col">
+        <div class="vs-text">VS</div>
+        <div class="gap-pill">+370 pts</div>
+    </div>
+    <div class="score-card">
+        <div class="score-name">Shivam</div>
+        <div class="score-pts">528</div>
+        <div class="score-label">total points</div>
+        <div class="score-wins">1W · 3L</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── SCORING RULES ──
+st.markdown('<div class="section-title">Scoring Rules</div>', unsafe_allow_html=True)
+
+with st.expander("View Rules"):
     st.markdown("""
-| Action | Points |
-|---|---|
-| 1 Run | 1 pt |
-| 1 Wicket | 20 pts |
-| Catch / Run Out / Stumping | 10 pts |
-| Half Century (50+ runs) | +10 bonus |
-| Century (100+ runs) | +20 bonus |
-| Five Wicket Haul | +20 bonus |
-| Captain | 2x all points |
-    """)
-    st.caption("Fielding tracked as per Cricbuzz scorecard.")
+<table class="rules-table">
+<tr><th>Action</th><th>Points</th></tr>
+<tr><td>1 Run</td><td>1 pt</td></tr>
+<tr><td>1 Wicket</td><td>20 pts</td></tr>
+<tr><td>Catch / Run Out / Stumping</td><td>10 pts</td></tr>
+<tr><td>Half Century (50+ runs)</td><td>+10 bonus</td></tr>
+<tr><td>Century (100+ runs)</td><td>+20 bonus</td></tr>
+<tr><td>Five Wicket Haul</td><td>+20 bonus</td></tr>
+<tr><td>Captain</td><td>2x all points</td></tr>
+</table>
+<p style="font-size:11px;color:#404060;margin-top:10px;">
+5 players each, selected after toss from playing XI. Fielding tracked as per Cricbuzz.
+</p>
+""", unsafe_allow_html=True)
 
-st.write("---")
 
-st.subheader("Match History")
+# ── MATCH HISTORY ──
+st.markdown('<div class="section-title">Match History</div>', unsafe_allow_html=True)
 
-with st.expander("Match 4 — GT vs PBKS · Mar 31  |  🔵 Shivam wins  191 vs 144"):
-    c1, c2 = st.columns(2)
-    with c1:
-        st.write("**🟡 Amitabh**")
-        st.write("Sai Sudharsan ⭐ — 26")
-        st.write("Shubman Gill — 49")
-        st.write("Glenn Phillips — 25")
-        st.write("Prabhsimran Singh — 37")
-        st.write("Priyansh Arya — 7")
-        st.write("**Total: 144**")
-    with c2:
-        st.write("**🔵 Shivam 🏆**")
-        st.write("Shreyas Iyer ⭐ — 56")
-        st.write("Jos Buttler — 48")
-        st.write("Marco Jansen — 39")
-        st.write("Washington Sundar — 48")
-        st.write("Mohammed Siraj — 0")
-        st.write("**Total: 191**")
 
-with st.expander("Match 3 — RR vs CSK · Mar 30  |  🟡 Amitabh wins  142 vs 77"):
-    c1, c2 = st.columns(2)
-    with c1:
-        st.write("**🟡 Amitabh 🏆**")
-        st.write("Vaibhav Sooryavanshi ⭐ — 124")
-        st.write("Shivam Dube — 6")
-        st.write("Matthew Short — 2")
-        st.write("Ayush Mhatre — 0")
-        st.write("Shimron Hetmyer — 10")
-        st.write("**Total: 142**")
-    with c2:
-        st.write("**🔵 Shivam**")
-        st.write("Sanju Samson ⭐ — 12")
-        st.write("Riyan Parag — 14")
-        st.write("Nandre Burger — 40")
-        st.write("Matt Henry — 5")
-        st.write("Ruturaj Gaikwad — 6")
-        st.write("**Total: 77**")
+def match_card(title, date, a_total, s_total, a_winner, a_players, s_players):
+    a_trophy = "🏆" if a_winner else ""
+    s_trophy = "" if a_winner else "🏆"
+    a_col = "#2ecc71" if a_winner else "#7070a0"
+    s_col = "#7070a0" if a_winner else "#2ecc71"
+    a_head = "winner" if a_winner else ""
+    s_head = "" if a_winner else "winner"
 
-with st.expander("Match 2 — MI vs KKR · Mar 29  |  🟡 Amitabh wins  295 vs 96"):
-    c1, c2 = st.columns(2)
-    with c1:
-        st.write("**🟡 Amitabh 🏆**")
-        st.write("Angkrish ⭐ — 122")
-        st.write("Rohit Sharma — 88")
-        st.write("Finn Allen — 37")
-        st.write("Hardik Pandya — 48")
-        st.write("Jasprit Bumrah — 0")
-        st.write("**Total: 295**")
-    with c2:
-        st.write("**🔵 Shivam**")
-        st.write("Cameron Green ⭐ — 36")
-        st.write("Trent Boult — 0")
-        st.write("Tilak Varma — 40")
-        st.write("Sunil Narine — 20")
-        st.write("Varun Chakravarthy — 0")
-        st.write("**Total: 96**")
+    a_rows = ""
+    for name, pts, cap in a_players:
+        cap_html = '<span class="cap-badge">C</span>' if cap else ""
+        a_rows += f'<div class="p-row"><span class="p-name">{name} {cap_html}</span><span class="p-pts">{pts}</span></div>'
 
-with st.expander("Match 1 — RCB vs SRH · Mar 28  |  🟡 Amitabh wins  317 vs 164"):
-    c1, c2 = st.columns(2)
-    with c1:
-        st.write("**🟡 Amitabh 🏆**")
-        st.write("Ishan Kishan ⭐ — 180")
-        st.write("Phil Salt — 39")
-        st.write("Travis Head — 7")
-        st.write("Rajat Patidar — 31")
-        st.write("Romario Shepherd — 60")
-        st.write("**Total: 317**")
-    with c2:
-        st.write("**🔵 Shivam**")
-        st.write("Abhishek Sharma ⭐ — 14")
-        st.write("Virat Kohli — 89")
-        st.write("H. Klaasen — 41")
-        st.write("Harshal Patel — 0")
-        st.write("Bhuvneshwar Kumar — 20")
-        st.write("**Total: 164**")
+    s_rows = ""
+    for name, pts, cap in s_players:
+        cap_html = '<span class="cap-badge">C</span>' if cap else ""
+        s_rows += f'<div class="p-row"><span class="p-name">{name} {cap_html}</span><span class="p-pts">{pts}</span></div>'
+
+    with st.expander(f"{title}  ·  {date}"):
+        st.markdown(f"""
+<div class="match-result">
+    <div>
+        <div class="result-score" style="color:{a_col}">{a_total}</div>
+        <div class="result-label">Amitabh {a_trophy}</div>
+    </div>
+    <div style="color:#404060;font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;padding:0 4px;">VS</div>
+    <div>
+        <div class="result-score" style="color:{s_col}">{s_total}</div>
+        <div class="result-label">Shivam {s_trophy}</div>
+    </div>
+</div>
+<div class="player-grid">
+    <div class="player-col">
+        <div class="team-head {a_head}">Amitabh {a_trophy}</div>
+        {a_rows}
+        <div class="total-row">
+            <span class="total-label">Total</span>
+            <span class="total-val">{a_total}</span>
+        </div>
+    </div>
+    <div class="player-col">
+        <div class="team-head {s_head}">Shivam {s_trophy}</div>
+        {s_rows}
+        <div class="total-row">
+            <span class="total-label">Total</span>
+            <span class="total-val">{s_total}</span>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+match_card(
+    "Match 4 — GT vs PBKS", "Mar 31", 144, 191, False,
+    [("Sai Sudharsan", 26, True), ("Shubman Gill", 49, False),
+     ("Glenn Phillips", 25, False), ("Prabhsimran Singh", 37, False), ("Priyansh Arya", 7, False)],
+    [("Shreyas Iyer", 56, True), ("Jos Buttler", 48, False),
+     ("Marco Jansen", 39, False), ("Washington Sundar", 48, False), ("Mohammed Siraj", 0, False)]
+)
+
+match_card(
+    "Match 3 — RR vs CSK", "Mar 30", 142, 77, True,
+    [("Vaibhav Sooryavanshi", 124, True), ("Shivam Dube", 6, False),
+     ("Matthew Short", 2, False), ("Ayush Mhatre", 0, False), ("Shimron Hetmyer", 10, False)],
+    [("Sanju Samson", 12, True), ("Riyan Parag", 14, False),
+     ("Nandre Burger", 40, False), ("Matt Henry", 5, False), ("Ruturaj Gaikwad", 6, False)]
+)
+
+match_card(
+    "Match 2 — MI vs KKR", "Mar 29", 295, 96, True,
+    [("Angkrish Raghuvanshi", 122, True), ("Rohit Sharma", 88, False),
+     ("Finn Allen", 37, False), ("Hardik Pandya", 48, False), ("Jasprit Bumrah", 0, False)],
+    [("Cameron Green", 36, True), ("Trent Boult", 0, False),
+     ("Tilak Varma", 40, False), ("Sunil Narine", 20, False), ("Varun Chakravarthy", 0, False)]
+)
+
+match_card(
+    "Match 1 — RCB vs SRH", "Mar 28", 317, 164, True,
+    [("Ishan Kishan", 180, True), ("Phil Salt", 39, False),
+     ("Travis Head", 7, False), ("Rajat Patidar", 31, False), ("Romario Shepherd", 60, False)],
+    [("Abhishek Sharma", 14, True), ("Virat Kohli", 89, False),
+     ("H. Klaasen", 41, False), ("Harshal Patel", 0, False), ("Bhuvneshwar Kumar", 20, False)]
+)
