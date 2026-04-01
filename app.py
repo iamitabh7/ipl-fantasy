@@ -7,7 +7,6 @@ st.caption("Amitabh vs Shivam · Season Tracker")
 
 st.write("---")
 
-# ── SEASON TOTALS ──
 col1, col2 = st.columns(2)
 with col1:
     st.metric(label="🟡 Amitabh", value="898 pts", delta="leads by 370")
@@ -16,7 +15,6 @@ with col2:
 
 st.write("---")
 
-# ── SCORING RULES ──
 with st.expander("📋 Scoring Rules"):
     st.markdown("""
 | Action | Points |
@@ -33,7 +31,6 @@ with st.expander("📋 Scoring Rules"):
 
 st.write("---")
 
-# ── MATCH HISTORY ──
 st.subheader("Match History")
 
 with st.expander("Match 4 — GT vs PBKS · Mar 31  |  🔵 Shivam wins  191 vs 144"):
@@ -111,10 +108,3 @@ with st.expander("Match 1 — RCB vs SRH · Mar 28  |  🟡 Amitabh wins  317 vs
         st.write("Harshal Patel — 0")
         st.write("Bhuvneshwar Kumar — 20")
         st.write("**Total: 164**")
-```
-
-Once pasted, save with **Cmd+S**, then in Terminal:
-```
-git add .
-git commit -m "updated all 4 matches with correct points"
-git push
