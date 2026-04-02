@@ -41,6 +41,14 @@ matches = [
         'shivam': ['Nicholas Pooran', 'Mohammed Shami', 'Axar Patel', 'Anrich Nortje', 'Pathum Nissanka'],
         'shivam_captain': 'Nicholas Pooran',
     },
+    {
+        'file': 'match6.json',
+        'name': 'Match 6 - KKR vs SRH',
+        'amitabh': ['Travis Head', 'Abhishek Sharma', 'Cameron Green', 'Ajinkya Rahane', 'Finn Allen'],
+        'amitabh_captain': 'Travis Head',
+        'shivam': ['Sunil Narine', 'Angkrish Raghuvanshi', 'Heinrich Klaasen', 'Nitish Kumar Reddy', 'Ishan Kishan'],
+        'shivam_captain': 'Ishan Kishan',
+    },
 ]
 
 def calculate_points(player_name, is_captain, innings_list):

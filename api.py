@@ -101,8 +101,7 @@ def get_fixtures():
     for tm in data.get('typeMatches', []):
         for sm in tm.get('seriesMatches', []):
             wrap = sm.get('seriesAdWrapper', {})
-            sname = wrap.get('seriesName', '')
-            if 'Indian Premier League' not in sname:
+            if 'Indian Premier League' not in wrap.get('seriesName', ''):
                 continue
             for m in wrap.get('matches', []):
                 mi = m.get('matchInfo', {})
@@ -138,7 +137,7 @@ def get_players(match_id):
     data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
     scorecard = data.get('scorecard', [])
     if not scorecard:
-        return jsonify({'error': 'No player data yet. Match may not have started.', 'players': []})
+        return jsonify({'error': 'No player data yet.', 'players': []})
     all_players = set()
     for innings in scorecard:
         for b in innings.get('batsman', []):
@@ -173,7 +172,7 @@ def save_selection():
           json.dumps(shivam), shivam_cap, int(time.time())))
     conn.commit()
     conn.close()
-    return jsonify({'success': True, 'message': 'Selections saved!'})
+    return jsonify({'success': True})
 
 @app.route('/api/live/<match_id>')
 def get_live_score(match_id):
@@ -185,7 +184,7 @@ def get_live_score(match_id):
     row = conn.execute('SELECT * FROM selections WHERE match_id = ?', (match_id,)).fetchone()
     conn.close()
     if not row:
-        return jsonify({'error': 'No selections found for this match'})
+        return jsonify({'error': 'No selections found'})
     amitabh = json.loads(row['amitabh_players'])
     amitabh_cap = row['amitabh_captain']
     shivam = json.loads(row['shivam_players'])
@@ -205,14 +204,120 @@ def get_live_score(match_id):
 @app.route('/api/season')
 def get_season():
     past_matches = [
-        {'match_id': '149618', 'desc': 'Match 1 - RCB vs SRH', 'amitabh_total': 312, 'shivam_total': 174},
-        {'match_id': '149629', 'desc': 'Match 2 - MI vs KKR', 'amitabh_total': 295, 'shivam_total': 96},
-        {'match_id': '149640', 'desc': 'Match 3 - RR vs CSK', 'amitabh_total': 142, 'shivam_total': 77},
-        {'match_id': '149651', 'desc': 'Match 4 - GT vs PBKS', 'amitabh_total': 154, 'shivam_total': 191},
-        {'match_id': '149662', 'desc': 'Match 5 - LSG vs DC', 'amitabh_total': 156, 'shivam_total': 58},
+        {
+            'match_id': '149618', 'desc': 'Match 1 — RCB vs SRH',
+            'amitabh_total': 312, 'shivam_total': 174,
+            'amitabh_players': [
+                {'name':'Ishan Kishan','runs':80,'wickets':0,'catches':0,'runouts':0,'points':180,'is_captain':True},
+                {'name':'Phil Salt','runs':0,'wickets':0,'catches':3,'runouts':0,'points':30,'is_captain':False},
+                {'name':'Travis Head','runs':11,'wickets':0,'catches':0,'runouts':0,'points':11,'is_captain':False},
+                {'name':'Rajat Patidar','runs':31,'wickets':0,'catches':0,'runouts':0,'points':31,'is_captain':False},
+                {'name':'Romario Shepherd','runs':0,'wickets':3,'catches':0,'runouts':0,'points':60,'is_captain':False},
+            ],
+            'shivam_players': [
+                {'name':'Abhishek Sharma','runs':7,'wickets':0,'catches':0,'runouts':0,'points':14,'is_captain':True},
+                {'name':'Virat Kohli','runs':69,'wickets':0,'catches':1,'runouts':0,'points':89,'is_captain':False},
+                {'name':'Heinrich Klaasen','runs':31,'wickets':0,'catches':2,'runouts':0,'points':51,'is_captain':False},
+                {'name':'Harshal Patel','runs':0,'wickets':0,'catches':0,'runouts':0,'points':0,'is_captain':False},
+                {'name':'Bhuvneshwar Kumar','runs':0,'wickets':1,'catches':0,'runouts':0,'points':20,'is_captain':False},
+            ],
+        },
+        {
+            'match_id': '149629', 'desc': 'Match 2 — MI vs KKR',
+            'amitabh_total': 295, 'shivam_total': 96,
+            'amitabh_players': [
+                {'name':'Angkrish Raghuvanshi','runs':51,'wickets':0,'catches':0,'runouts':0,'points':122,'is_captain':True},
+                {'name':'Rohit Sharma','runs':78,'wickets':0,'catches':0,'runouts':0,'points':88,'is_captain':False},
+                {'name':'Finn Allen','runs':37,'wickets':0,'catches':0,'runouts':0,'points':37,'is_captain':False},
+                {'name':'Hardik Pandya','runs':18,'wickets':1,'catches':1,'runouts':0,'points':48,'is_captain':False},
+                {'name':'Jasprit Bumrah','runs':0,'wickets':0,'catches':0,'runouts':0,'points':0,'is_captain':False},
+            ],
+            'shivam_players': [
+                {'name':'Cameron Green','runs':18,'wickets':0,'catches':0,'runouts':0,'points':36,'is_captain':True},
+                {'name':'Trent Boult','runs':0,'wickets':0,'catches':0,'runouts':0,'points':0,'is_captain':False},
+                {'name':'Tilak Varma','runs':20,'wickets':0,'catches':2,'runouts':0,'points':40,'is_captain':False},
+                {'name':'Sunil Narine','runs':0,'wickets':1,'catches':0,'runouts':0,'points':20,'is_captain':False},
+                {'name':'Varun Chakaravarthy','runs':0,'wickets':0,'catches':0,'runouts':0,'points':0,'is_captain':False},
+            ],
+        },
+        {
+            'match_id': '149640', 'desc': 'Match 3 — RR vs CSK',
+            'amitabh_total': 142, 'shivam_total': 77,
+            'amitabh_players': [
+                {'name':'Vaibhav Sooryavanshi','runs':52,'wickets':0,'catches':0,'runouts':0,'points':124,'is_captain':True},
+                {'name':'Shivam Dube','runs':6,'wickets':0,'catches':0,'runouts':0,'points':6,'is_captain':False},
+                {'name':'Matthew Short','runs':2,'wickets':0,'catches':0,'runouts':0,'points':2,'is_captain':False},
+                {'name':'Ayush Mhatre','runs':0,'wickets':0,'catches':0,'runouts':0,'points':0,'is_captain':False},
+                {'name':'Shimron Hetmyer','runs':0,'wickets':0,'catches':0,'runouts':1,'points':10,'is_captain':False},
+            ],
+            'shivam_players': [
+                {'name':'Sanju Samson','runs':6,'wickets':0,'catches':0,'runouts':0,'points':12,'is_captain':True},
+                {'name':'Riyan Parag','runs':14,'wickets':0,'catches':0,'runouts':0,'points':14,'is_captain':False},
+                {'name':'Nandre Burger','runs':0,'wickets':2,'catches':0,'runouts':0,'points':40,'is_captain':False},
+                {'name':'Matt Henry','runs':5,'wickets':0,'catches':0,'runouts':0,'points':5,'is_captain':False},
+                {'name':'Ruturaj Gaikwad','runs':6,'wickets':0,'catches':0,'runouts':0,'points':6,'is_captain':False},
+            ],
+        },
+        {
+            'match_id': '149651', 'desc': 'Match 4 — GT vs PBKS',
+            'amitabh_total': 154, 'shivam_total': 191,
+            'amitabh_players': [
+                {'name':'Sai Sudharsan','runs':13,'wickets':0,'catches':0,'runouts':0,'points':26,'is_captain':True},
+                {'name':'Shubman Gill','runs':39,'wickets':0,'catches':2,'runouts':0,'points':59,'is_captain':False},
+                {'name':'Glenn Phillips','runs':25,'wickets':0,'catches':0,'runouts':0,'points':25,'is_captain':False},
+                {'name':'Prabhsimran Singh','runs':37,'wickets':0,'catches':0,'runouts':0,'points':37,'is_captain':False},
+                {'name':'Priyansh Arya','runs':7,'wickets':0,'catches':0,'runouts':0,'points':7,'is_captain':False},
+            ],
+            'shivam_players': [
+                {'name':'Shreyas Iyer','runs':18,'wickets':0,'catches':1,'runouts':0,'points':56,'is_captain':True},
+                {'name':'Jos Buttler','runs':38,'wickets':0,'catches':1,'runouts':0,'points':48,'is_captain':False},
+                {'name':'Marco Jansen','runs':9,'wickets':1,'catches':1,'runouts':0,'points':39,'is_captain':False},
+                {'name':'Washington Sundar','runs':18,'wickets':1,'catches':1,'runouts':0,'points':48,'is_captain':False},
+                {'name':'Mohammed Siraj','runs':0,'wickets':0,'catches':0,'runouts':0,'points':0,'is_captain':False},
+            ],
+        },
+        {
+            'match_id': '149662', 'desc': 'Match 5 — LSG vs DC',
+            'amitabh_total': 156, 'shivam_total': 58,
+            'amitabh_players': [
+                {'name':'KL Rahul','runs':0,'wickets':0,'catches':1,'runouts':0,'points':20,'is_captain':True},
+                {'name':'Lungi Ngidi','runs':0,'wickets':3,'catches':0,'runouts':0,'points':60,'is_captain':False},
+                {'name':'Mitchell Marsh','runs':35,'wickets':0,'catches':0,'runouts':0,'points':35,'is_captain':False},
+                {'name':'Aiden Markram','runs':11,'wickets':0,'catches':0,'runouts':0,'points':11,'is_captain':False},
+                {'name':'Mohsin Khan','runs':0,'wickets':1,'catches':1,'runouts':0,'points':30,'is_captain':False},
+            ],
+            'shivam_players': [
+                {'name':'Nicholas Pooran','runs':8,'wickets':0,'catches':0,'runouts':0,'points':16,'is_captain':True},
+                {'name':'Mohammed Shami','runs':1,'wickets':1,'catches':0,'runouts':0,'points':21,'is_captain':False},
+                {'name':'Axar Patel','runs':0,'wickets':1,'catches':0,'runouts':0,'points':20,'is_captain':False},
+                {'name':'Anrich Nortje','runs':0,'wickets':0,'catches':0,'runouts':0,'points':0,'is_captain':False},
+                {'name':'Pathum Nissanka','runs':1,'wickets':0,'catches':0,'runouts':0,'points':1,'is_captain':False},
+            ],
+        },
+        {
+            'match_id': '149673', 'desc': 'Match 6 — KKR vs SRH',
+            'amitabh_total': 198, 'shivam_total': 283,
+            'amitabh_players': [
+                {'name':'Travis Head','runs':46,'wickets':0,'catches':0,'runouts':0,'points':92,'is_captain':True},
+                {'name':'Abhishek Sharma','runs':48,'wickets':0,'catches':0,'runouts':0,'points':48,'is_captain':False},
+                {'name':'Cameron Green','runs':2,'wickets':0,'catches':1,'runouts':0,'points':12,'is_captain':False},
+                {'name':'Ajinkya Rahane','runs':8,'wickets':0,'catches':1,'runouts':0,'points':18,'is_captain':False},
+                {'name':'Finn Allen','runs':28,'wickets':0,'catches':0,'runouts':0,'points':28,'is_captain':False},
+            ],
+            'shivam_players': [
+                {'name':'Ishan Kishan','runs':14,'wickets':0,'catches':2,'runouts':0,'points':68,'is_captain':True},
+                {'name':'Sunil Narine','runs':12,'wickets':0,'catches':0,'runouts':0,'points':12,'is_captain':False},
+                {'name':'Angkrish Raghuvanshi','runs':52,'wickets':0,'catches':0,'runouts':0,'points':62,'is_captain':False},
+                {'name':'Heinrich Klaasen','runs':52,'wickets':0,'catches':0,'runouts':0,'points':62,'is_captain':False},
+                {'name':'Nitish Kumar Reddy','runs':39,'wickets':2,'catches':0,'runouts':0,'points':79,'is_captain':False},
+            ],
+        },
     ]
+
     a_total = sum(m['amitabh_total'] for m in past_matches)
     s_total = sum(m['shivam_total'] for m in past_matches)
+
+    # Add any new matches from DB
     conn = get_db()
     rows = conn.execute('SELECT * FROM selections').fetchall()
     conn.close()
@@ -227,16 +332,19 @@ def get_season():
             continue
         amitabh = json.loads(row['amitabh_players'])
         shivam = json.loads(row['shivam_players'])
-        _, at = score_team(amitabh, row['amitabh_captain'], scorecard)
-        _, st = score_team(shivam, row['shivam_captain'], scorecard)
+        a_players, at = score_team(amitabh, row['amitabh_captain'], scorecard)
+        s_players, st = score_team(shivam, row['shivam_captain'], scorecard)
         a_total += at
         s_total += st
         past_matches.append({
             'match_id': mid,
             'desc': data.get('status', ''),
             'amitabh_total': at,
-            'shivam_total': st
+            'shivam_total': st,
+            'amitabh_players': a_players,
+            'shivam_players': s_players,
         })
+
     return jsonify({
         'amitabh_total': a_total,
         'shivam_total': s_total,
