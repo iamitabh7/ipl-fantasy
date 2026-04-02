@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: ipl-fantasy-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api:app --bind 0.0.0.0:$PORT
