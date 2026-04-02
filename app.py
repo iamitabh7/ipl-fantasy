@@ -165,6 +165,7 @@ h1, h2, h3 { font-family: 'Rajdhani', sans-serif !important; letter-spacing: 0.0
     font-weight: 600;
 }
 .p-pts { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 600; color: #ffffff; }
+.p-detail { font-size: 10px; color: #404060; margin-top: 1px; }
 .total-row {
     display: flex;
     justify-content: space-between;
@@ -182,11 +183,7 @@ h1, h2, h3 { font-family: 'Rajdhani', sans-serif !important; letter-spacing: 0.0
     margin-bottom: 14px;
     padding: 10px 0;
 }
-.result-score {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 24px;
-    font-weight: 700;
-}
+.result-score { font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 700; }
 .result-label { font-size: 12px; color: #7070a0; }
 
 #MainMenu {visibility: hidden;}
@@ -195,43 +192,36 @@ header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-
-# ── TOP BANNER ──
 st.markdown("""
 <div class="top-banner">
     <div class="brand-label">IPL 2026 · Fantasy League</div>
     <div class="main-title">The <span>Rivalry</span></div>
-    <div class="subtitle">Amitabh vs Shivam &nbsp;·&nbsp; 4 matches played</div>
+    <div class="subtitle">Amitabh vs Shivam &nbsp;·&nbsp; 5 matches played</div>
 </div>
 """, unsafe_allow_html=True)
 
-
-# ── SCOREBOARD ──
 st.markdown("""
 <div class="score-grid">
     <div class="score-card leader">
         <div class="score-name">Amitabh</div>
-        <div class="score-pts">898</div>
+        <div class="score-pts">1059</div>
         <div class="score-label">total points</div>
-        <div class="score-wins">3W · 1L</div>
+        <div class="score-wins">4W · 1L</div>
     </div>
     <div class="vs-col">
         <div class="vs-text">VS</div>
-        <div class="gap-pill">+370 pts</div>
+        <div class="gap-pill">+463 pts</div>
     </div>
     <div class="score-card">
         <div class="score-name">Shivam</div>
-        <div class="score-pts">528</div>
+        <div class="score-pts">596</div>
         <div class="score-label">total points</div>
-        <div class="score-wins">1W · 3L</div>
+        <div class="score-wins">1W · 4L</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-
-# ── SCORING RULES ──
 st.markdown('<div class="section-title">Scoring Rules</div>', unsafe_allow_html=True)
-
 with st.expander("View Rules"):
     st.markdown("""
 <table class="rules-table">
@@ -245,16 +235,13 @@ with st.expander("View Rules"):
 <tr><td>Captain</td><td>2x all points</td></tr>
 </table>
 <p style="font-size:11px;color:#404060;margin-top:10px;">
-5 players each, selected after toss from playing XI. Fielding tracked as per Cricbuzz.
+5 players each, selected after toss from playing XI + impact subs. Fielding tracked as per Cricbuzz API.
 </p>
 """, unsafe_allow_html=True)
 
-
-# ── MATCH HISTORY ──
 st.markdown('<div class="section-title">Match History</div>', unsafe_allow_html=True)
 
-
-def match_card(title, date, a_total, s_total, a_winner, a_players, s_players):
+def match_card(title, date, status, a_total, s_total, a_winner, a_players, s_players):
     a_trophy = "🏆" if a_winner else ""
     s_trophy = "" if a_winner else "🏆"
     a_col = "#2ecc71" if a_winner else "#7070a0"
@@ -263,23 +250,28 @@ def match_card(title, date, a_total, s_total, a_winner, a_players, s_players):
     s_head = "" if a_winner else "winner"
 
     a_rows = ""
-    for name, pts, cap in a_players:
+    for name, runs, wkts, catches, ros, pts, cap in a_players:
         cap_html = '<span class="cap-badge">C</span>' if cap else ""
-        a_rows += f'<div class="p-row"><span class="p-name">{name} {cap_html}</span><span class="p-pts">{pts}</span></div>'
+        detail = f"{runs}r · {wkts}w · {catches}c"
+        if ros: detail += f" · {ros}ro"
+        a_rows += f'<div class="p-row"><div><span class="p-name">{name} {cap_html}</span><div class="p-detail">{detail}</div></div><span class="p-pts">{pts}</span></div>'
 
     s_rows = ""
-    for name, pts, cap in s_players:
+    for name, runs, wkts, catches, ros, pts, cap in s_players:
         cap_html = '<span class="cap-badge">C</span>' if cap else ""
-        s_rows += f'<div class="p-row"><span class="p-name">{name} {cap_html}</span><span class="p-pts">{pts}</span></div>'
+        detail = f"{runs}r · {wkts}w · {catches}c"
+        if ros: detail += f" · {ros}ro"
+        s_rows += f'<div class="p-row"><div><span class="p-name">{name} {cap_html}</span><div class="p-detail">{detail}</div></div><span class="p-pts">{pts}</span></div>'
 
     with st.expander(f"{title}  ·  {date}"):
         st.markdown(f"""
+<div style="font-size:11px;color:#7070a0;margin-bottom:12px;">{status}</div>
 <div class="match-result">
     <div>
         <div class="result-score" style="color:{a_col}">{a_total}</div>
         <div class="result-label">Amitabh {a_trophy}</div>
     </div>
-    <div style="color:#404060;font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;padding:0 4px;">VS</div>
+    <div style="color:#404060;font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;padding:0 8px;">VS</div>
     <div>
         <div class="result-score" style="color:{s_col}">{s_total}</div>
         <div class="result-label">Shivam {s_trophy}</div>
@@ -289,51 +281,73 @@ def match_card(title, date, a_total, s_total, a_winner, a_players, s_players):
     <div class="player-col">
         <div class="team-head {a_head}">Amitabh {a_trophy}</div>
         {a_rows}
-        <div class="total-row">
-            <span class="total-label">Total</span>
-            <span class="total-val">{a_total}</span>
-        </div>
+        <div class="total-row"><span class="total-label">Total</span><span class="total-val">{a_total}</span></div>
     </div>
     <div class="player-col">
         <div class="team-head {s_head}">Shivam {s_trophy}</div>
         {s_rows}
-        <div class="total-row">
-            <span class="total-label">Total</span>
-            <span class="total-val">{s_total}</span>
-        </div>
+        <div class="total-row"><span class="total-label">Total</span><span class="total-val">{s_total}</span></div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
+# name, runs, wickets, catches, runouts, points, is_captain
+match_card("Match 5 — LSG vs DC", "Apr 1", "Delhi Capitals won by 6 wkts", 156, 58, True,
+    [("KL Rahul", 0, 0, 1, 0, 20, True),
+     ("Lungi Ngidi", 0, 3, 0, 0, 60, False),
+     ("Mitchell Marsh", 35, 0, 0, 0, 35, False),
+     ("Aiden Markram", 11, 0, 0, 0, 11, False),
+     ("Mohsin Khan", 0, 1, 1, 0, 30, False)],
+    [("Nicholas Pooran", 8, 0, 0, 0, 16, True),
+     ("Mohammed Shami", 1, 1, 0, 0, 21, False),
+     ("Axar Patel", 0, 1, 0, 0, 20, False),
+     ("Anrich Nortje", 0, 0, 0, 0, 0, False),
+     ("Pathum Nissanka", 1, 0, 0, 0, 1, False)])
 
-match_card(
-    "Match 4 — GT vs PBKS", "Mar 31", 144, 191, False,
-    [("Sai Sudharsan", 26, True), ("Shubman Gill", 49, False),
-     ("Glenn Phillips", 25, False), ("Prabhsimran Singh", 37, False), ("Priyansh Arya", 7, False)],
-    [("Shreyas Iyer", 56, True), ("Jos Buttler", 48, False),
-     ("Marco Jansen", 39, False), ("Washington Sundar", 48, False), ("Mohammed Siraj", 0, False)]
-)
+match_card("Match 4 — GT vs PBKS", "Mar 31", "Punjab Kings won by 3 wkts", 154, 191, False,
+    [("Shubman Gill", 39, 0, 2, 0, 59, False),
+     ("Sai Sudharsan", 13, 0, 0, 0, 26, True),
+     ("Glenn Phillips", 25, 0, 0, 0, 25, False),
+     ("Prabhsimran Singh", 37, 0, 0, 0, 37, False),
+     ("Priyansh Arya", 7, 0, 0, 0, 7, False)],
+    [("Jos Buttler", 38, 0, 1, 0, 48, False),
+     ("Shreyas Iyer", 18, 0, 1, 0, 56, True),
+     ("Marco Jansen", 9, 1, 1, 0, 39, False),
+     ("Washington Sundar", 18, 1, 1, 0, 48, False),
+     ("Mohammed Siraj", 0, 0, 0, 0, 0, False)])
 
-match_card(
-    "Match 3 — RR vs CSK", "Mar 30", 142, 77, True,
-    [("Vaibhav Sooryavanshi", 124, True), ("Shivam Dube", 6, False),
-     ("Matthew Short", 2, False), ("Ayush Mhatre", 0, False), ("Shimron Hetmyer", 10, False)],
-    [("Sanju Samson", 12, True), ("Riyan Parag", 14, False),
-     ("Nandre Burger", 40, False), ("Matt Henry", 5, False), ("Ruturaj Gaikwad", 6, False)]
-)
+match_card("Match 3 — RR vs CSK", "Mar 30", "Rajasthan Royals won by 8 wkts", 142, 77, True,
+    [("Vaibhav Sooryavanshi", 52, 0, 0, 0, 124, True),
+     ("Shivam Dube", 6, 0, 0, 0, 6, False),
+     ("Matthew Short", 2, 0, 0, 0, 2, False),
+     ("Ayush Mhatre", 0, 0, 0, 0, 0, False),
+     ("Shimron Hetmyer", 0, 0, 0, 1, 10, False)],
+    [("Sanju Samson", 6, 0, 0, 0, 12, True),
+     ("Riyan Parag", 14, 0, 0, 0, 14, False),
+     ("Nandre Burger", 0, 2, 0, 0, 40, False),
+     ("Matt Henry", 5, 0, 0, 0, 5, False),
+     ("Ruturaj Gaikwad", 6, 0, 0, 0, 6, False)])
 
-match_card(
-    "Match 2 — MI vs KKR", "Mar 29", 295, 96, True,
-    [("Angkrish Raghuvanshi", 122, True), ("Rohit Sharma", 88, False),
-     ("Finn Allen", 37, False), ("Hardik Pandya", 48, False), ("Jasprit Bumrah", 0, False)],
-    [("Cameron Green", 36, True), ("Trent Boult", 0, False),
-     ("Tilak Varma", 40, False), ("Sunil Narine", 20, False), ("Varun Chakravarthy", 0, False)]
-)
+match_card("Match 2 — MI vs KKR", "Mar 29", "Mumbai Indians won by 6 wkts", 295, 96, True,
+    [("Angkrish Raghuvanshi", 51, 0, 0, 0, 122, True),
+     ("Rohit Sharma", 78, 0, 0, 0, 88, False),
+     ("Finn Allen", 37, 0, 0, 0, 37, False),
+     ("Hardik Pandya", 18, 1, 1, 0, 48, False),
+     ("Jasprit Bumrah", 0, 0, 0, 0, 0, False)],
+    [("Cameron Green", 18, 0, 0, 0, 36, True),
+     ("Trent Boult", 0, 0, 0, 0, 0, False),
+     ("Tilak Varma", 20, 0, 2, 0, 40, False),
+     ("Sunil Narine", 0, 1, 0, 0, 20, False),
+     ("Varun Chakaravarthy", 0, 0, 0, 0, 0, False)])
 
-match_card(
-    "Match 1 — RCB vs SRH", "Mar 28", 317, 164, True,
-    [("Ishan Kishan", 180, True), ("Phil Salt", 39, False),
-     ("Travis Head", 7, False), ("Rajat Patidar", 31, False), ("Romario Shepherd", 60, False)],
-    [("Abhishek Sharma", 14, True), ("Virat Kohli", 89, False),
-     ("H. Klaasen", 41, False), ("Harshal Patel", 0, False), ("Bhuvneshwar Kumar", 20, False)]
-)
+match_card("Match 1 — RCB vs SRH", "Mar 28", "Royal Challengers Bengaluru won by 6 wkts", 312, 174, True,
+    [("Ishan Kishan", 80, 0, 0, 0, 180, True),
+     ("Phil Salt", 0, 0, 3, 0, 30, False),
+     ("Travis Head", 11, 0, 0, 0, 11, False),
+     ("Rajat Patidar", 31, 0, 0, 0, 31, False),
+     ("Romario Shepherd", 0, 3, 0, 0, 60, False)],
+    [("Abhishek Sharma", 7, 0, 0, 0, 14, True),
+     ("Virat Kohli", 69, 0, 1, 0, 89, False),
+     ("Heinrich Klaasen", 31, 0, 2, 0, 51, False),
+     ("Harshal Patel", 0, 0, 0, 0, 0, False),
+     ("Bhuvneshwar Kumar", 0, 1, 0, 0, 20, False)])
