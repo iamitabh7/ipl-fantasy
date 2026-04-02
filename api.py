@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import urllib.request
 import json
@@ -93,7 +93,9 @@ def score_team(players, captain, innings_list):
         results.append(r)
         total += r['points']
     return results, total
-
+@app.route('/')
+def serve_frontend():
+    return send_from_directory('.', 'index.html')
 @app.route('/api/fixtures')
 def get_fixtures():
     data = cricbuzz_get('/matches/v1/recent')
