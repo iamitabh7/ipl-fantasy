@@ -35,6 +35,17 @@ def _ensure_db():
         picks TEXT DEFAULT '[]', amitabh_captain TEXT DEFAULT '',
         shivam_captain TEXT DEFAULT '', is_complete INTEGER DEFAULT 0,
         created_at INTEGER)''')
+    # One-time data entry: match 7 CSK vs PBKS selections
+    conn.execute('''INSERT OR IGNORE INTO selections
+        (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)''', (
+        '149684',
+        json.dumps(['Cooper', 'Shivam Dube', 'Priyansh Arya', 'Prabhsimran Singh', 'Kartik Sharma']),
+        'Cooper',
+        json.dumps(['Sanju Samson', 'Shreyas Iyer', 'Marco Jansen', 'Yuzvendra Chahal', 'Marcus Stoinis']),
+        'Sanju Samson',
+        1743696000,
+    ))
     conn.commit()
     conn.close()
 
@@ -86,26 +97,35 @@ def get_players_cached(match_id):
     if match_id in _player_cache:
         return _player_cache[match_id]
     data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
+    result = _parse_players_from_scorecard(data)
+    if result['players']:
+        _player_cache[match_id] = result
+    return result
+
+def _parse_players_from_scorecard(data):
+    """
+    Extract players grouped by team from an hscard response.
+    The API returns batteamname/batteamsname directly on each innings object.
+    Inn[0] batsmen = team1, inn[0] bowlers = team2.
+    Inn[1] batsmen = team2, inn[1] bowlers = team1.
+    """
     scorecard = data.get('scorecard', [])
-    header = data.get('matchHeader', {})
-    team1_name  = header.get('team1', {}).get('name', '')
-    team2_name  = header.get('team2', {}).get('name', '')
-    team1_short = header.get('team1', {}).get('shortName', '')
-    team2_short = header.get('team2', {}).get('shortName', '')
     t1, t2 = set(), set()
-    for inn in scorecard:
-        bat = inn.get('batTeamDetails', {}).get('batTeamName', '')
-        is_t1 = bat == team1_name
-        for b in inn.get('batsman', []): (t1 if is_t1 else t2).add(b['name'])
-        for b in inn.get('bowler', []):  (t2 if is_t1 else t1).add(b['name'])
-    result = {
+    if len(scorecard) >= 1:
+        for b in scorecard[0].get('batsman', []): t1.add(b['name'])
+        for b in scorecard[0].get('bowler', []):  t2.add(b['name'])
+    if len(scorecard) >= 2:
+        for b in scorecard[1].get('batsman', []): t2.add(b['name'])
+        for b in scorecard[1].get('bowler', []):  t1.add(b['name'])
+    team1_name  = scorecard[0].get('batteamname',  '') if scorecard else ''
+    team1_short = scorecard[0].get('batteamsname', '') if scorecard else ''
+    team2_name  = scorecard[1].get('batteamname',  '') if len(scorecard) > 1 else ''
+    team2_short = scorecard[1].get('batteamsname', '') if len(scorecard) > 1 else ''
+    return {
         'players': sorted(t1 | t2),
         'team1': team1_name, 'team1_short': team1_short, 'team1_players': sorted(t1),
         'team2': team2_name, 'team2_short': team2_short, 'team2_players': sorted(t2),
     }
-    if result['players']:
-        _player_cache[match_id] = result
-    return result
 
 def draft_turn(first, n):
     second = 'shivam' if first == 'amitabh' else 'amitabh'
@@ -232,32 +252,17 @@ def get_fixtures():
 @app.route('/api/players/<match_id>')
 def get_players(match_id):
     data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
-    scorecard = data.get('scorecard', [])
-    if not scorecard:
+    if not data.get('scorecard'):
         return jsonify({'error': 'No player data yet.', 'players': []})
-    header = data.get('matchHeader', {})
-    team1_name = header.get('team1', {}).get('name', '')
-    team2_name = header.get('team2', {}).get('name', '')
-    team1_short = header.get('team1', {}).get('shortName', '')
-    team2_short = header.get('team2', {}).get('shortName', '')
-    team1_players = set()
-    team2_players = set()
-    for innings in scorecard:
-        bat_team = innings.get('batTeamDetails', {}).get('batTeamName', '')
-        is_team1_batting = bat_team == team1_name
-        for b in innings.get('batsman', []):
-            (team1_players if is_team1_batting else team2_players).add(b['name'])
-        for b in innings.get('bowler', []):
-            (team2_players if is_team1_batting else team1_players).add(b['name'])
-    all_players = sorted(team1_players | team2_players)
+    p = _parse_players_from_scorecard(data)
     return jsonify({
-        'players': all_players,
-        'team1': team1_name,
-        'team1_short': team1_short,
-        'team1_players': sorted(team1_players),
-        'team2': team2_name,
-        'team2_short': team2_short,
-        'team2_players': sorted(team2_players),
+        'players': p['players'],
+        'team1': p['team1'],
+        'team1_short': p['team1_short'],
+        'team1_players': p['team1_players'],
+        'team2': p['team2'],
+        'team2_short': p['team2_short'],
+        'team2_players': p['team2_players'],
         'status': data.get('status', ''),
         'match_id': match_id
     })
