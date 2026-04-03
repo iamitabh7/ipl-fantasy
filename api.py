@@ -351,6 +351,29 @@ def set_captain(match_id):
     conn.close()
     return jsonify(result)
 
+@app.route('/api/selections')
+def get_all_selections():
+    conn = get_db()
+    rows = conn.execute('SELECT match_id FROM selections').fetchall()
+    conn.close()
+    return jsonify([r['match_id'] for r in rows])
+
+@app.route('/api/selections/<match_id>')
+def get_selection(match_id):
+    conn = get_db()
+    row = conn.execute('SELECT * FROM selections WHERE match_id = ?', (match_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'exists': False, 'match_id': match_id})
+    return jsonify({
+        'exists': True,
+        'match_id': match_id,
+        'amitabh_players': json.loads(row['amitabh_players']),
+        'amitabh_captain': row['amitabh_captain'],
+        'shivam_players': json.loads(row['shivam_players']),
+        'shivam_captain': row['shivam_captain'],
+    })
+
 @app.route('/api/select', methods=['POST'])
 def save_selection():
     data = request.json

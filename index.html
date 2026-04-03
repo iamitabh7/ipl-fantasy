@@ -128,6 +128,8 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 .fscore-runs{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
 .select-btn{width:100%;margin-top:10px;padding:10px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:10px;color:var(--amber);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif}
 .select-btn:hover{background:rgba(245,166,35,0.2)}
+.view-btn{background:var(--green-dim);border-color:rgba(0,214,143,0.3);color:var(--green)}
+.view-btn:hover{background:rgba(0,214,143,0.2)}
 
 /* PLAYER SELECTOR */
 .selector-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;backdrop-filter:blur(4px)}
@@ -515,8 +517,12 @@ async function loadFixtures() {
   const list = document.getElementById('fixtures-list');
   list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
   try {
-    const res = await fetch(API + '/api/fixtures');
-    const matches = await res.json();
+    const [fixturesRes, selectionsRes] = await Promise.all([
+      fetch(API + '/api/fixtures'),
+      fetch(API + '/api/selections'),
+    ]);
+    const matches = await fixturesRes.json();
+    const savedIds = new Set(await selectionsRes.json());
     list.innerHTML = '';
     matches.forEach(m => {
       const isComplete = m.state === 'Complete';
@@ -534,7 +540,10 @@ async function loadFixtures() {
             <div class="fscore-runs">${m.team2_runs !== '-' ? m.team2_runs + '/' + m.team2_wkts + ' (' + t2o + ')' : '—'}</div>
           </div>
         </div>` : '';
-      const selectBtn = `<button class="select-btn" onclick="openSelector('${m.match_id}', '${m.team1_short} vs ${m.team2_short}')">Select Players →</button>`;
+      const label = `'${m.team1_short} vs ${m.team2_short}'`;
+      const actionBtn = savedIds.has(m.match_id)
+        ? `<button class="select-btn view-btn" onclick="viewScorecard('${m.match_id}', ${label})">View Scorecard →</button>`
+        : `<button class="select-btn" onclick="openSelector('${m.match_id}', ${label})">Select Players →</button>`;
       list.innerHTML += `
       <div class="fixture-card ${isComplete ? '' : 'upcoming'}">
         <div class="fixture-top">
@@ -545,12 +554,38 @@ async function loadFixtures() {
           <div class="fixture-status ${statusClass}">${isLive ? '🔴 Live' : isComplete ? (m.status || 'Complete') : (m.start_ist || 'Upcoming')}</div>
         </div>
         ${scoreHTML}
-        ${selectBtn}
+        ${actionBtn}
       </div>`;
     });
   } catch(e) {
     list.innerHTML = '<p style="color:var(--muted);padding:16px">Could not load fixtures.</p>';
   }
+}
+
+async function viewScorecard(matchId, matchName) {
+  document.getElementById('draft-match-name').textContent = matchName;
+  document.getElementById('selector-overlay').classList.add('open');
+  goToStep('step-complete');
+  document.querySelector('#step-complete .selector-title').textContent = 'Saved Selections';
+  document.querySelector('#step-complete .selector-sub').textContent = matchName;
+  document.getElementById('draft-complete-summary').innerHTML =
+    '<p style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Loading…</p>';
+  try {
+    const res = await fetch(API + '/api/selections/' + matchId);
+    const data = await res.json();
+    if (!data.exists) { showToast('No selections found.'); closeSelector(); return; }
+    const fakePicks = [
+      ...data.amitabh_players.map(p => ({player: p, user: 'amitabh'})),
+      ...data.shivam_players.map(p => ({player: p, user: 'shivam'})),
+    ];
+    showCompleteScreen({
+      picks: fakePicks,
+      amitabh_captain: data.amitabh_captain,
+      shivam_captain: data.shivam_captain,
+    });
+    document.querySelector('#step-complete .selector-title').textContent = 'Saved Selections';
+    document.querySelector('#step-complete .selector-sub').textContent = matchName;
+  } catch(e) { showToast('Error loading scorecard.'); closeSelector(); }
 }
 
 // ── DRAFT ─────────────────────────────────────────────
