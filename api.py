@@ -9,6 +9,22 @@ from datetime import datetime, timezone, timedelta
 app = Flask(__name__)
 CORS(app)
 
+# Run on every import so gunicorn (which skips __main__) still creates tables
+def _ensure_db():
+    conn = get_db()
+    conn.execute('''CREATE TABLE IF NOT EXISTS selections (
+        match_id TEXT PRIMARY KEY, amitabh_players TEXT, amitabh_captain TEXT,
+        shivam_players TEXT, shivam_captain TEXT, created_at INTEGER)''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS drafts (
+        match_id TEXT PRIMARY KEY, first_pick TEXT DEFAULT 'amitabh',
+        picks TEXT DEFAULT '[]', amitabh_captain TEXT DEFAULT '',
+        shivam_captain TEXT DEFAULT '', is_complete INTEGER DEFAULT 0,
+        created_at INTEGER)''')
+    conn.commit()
+    conn.close()
+
+_ensure_db()
+
 API_KEY = 'af7e0d6342mshf4bafbb8b9f34a4p142027jsne77b07afae99'
 API_HOST = 'cricbuzz-cricket.p.rapidapi.com'
 IPL_SERIES_ID = 9241
@@ -250,17 +266,16 @@ def get_players(match_id):
 def get_draft(match_id):
     conn = get_db()
     row = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    if not row:
+        first = get_last_match_info()['last_match_loser']
+        conn.execute(
+            'INSERT INTO drafts (match_id, first_pick, picks, amitabh_captain, shivam_captain, is_complete, created_at) VALUES (?,?,?,?,?,?,?)',
+            (match_id, first, '[]', '', '', 0, int(time.time()))
+        )
+        conn.commit()
+        row = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
     conn.close()
     player_data = get_players_cached(match_id)
-    last = get_last_match_info()
-    if not row:
-        return jsonify({
-            'exists': False, 'picks': [],
-            'first_pick': last['last_match_loser'],
-            'current_turn': last['last_match_loser'],
-            'amitabh_captain': '', 'shivam_captain': '', 'is_complete': False,
-            **player_data, **last,
-        })
     picks = json.loads(row['picks'])
     return jsonify({**build_draft_response(dict(row), picks), **player_data, 'exists': True})
 
