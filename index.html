@@ -171,6 +171,12 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 /* LOADING */
 .skeleton{background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;height:80px;margin-bottom:10px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media(max-width:500px){
+  .score-grid{grid-template-columns:1fr;}
+  .vs-col{padding:8px 0;}
+  .score-card{text-align:center;}
+}
+.team-group-head{font-size:11px;font-weight:600;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;padding:10px 4px 4px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -178,9 +184,9 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 <nav>
   <div class="nav-brand">🏏 IPL Fantasy</div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="showPage('home')">Home</button>
-    <button class="nav-tab" onclick="showPage('fixtures')">Fixtures</button>
-    <button class="nav-tab" onclick="showPage('rules')">Rules</button>
+    <button class="nav-tab active" onclick="showPage('home', this)">Home</button>
+    <button class="nav-tab" onclick="showPage('fixtures', this)">Fixtures</button>
+    <button class="nav-tab" onclick="showPage('rules', this)">Rules</button>
   </div>
 </nav>
 
@@ -345,11 +351,11 @@ let liveMatchId = null;
 let liveInterval = null;
 
 // ── PAGE NAV ──────────────────────────────────────────
-function showPage(id) {
+function showPage(id, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
-  event.target.classList.add('active');
+  el.classList.add('active');
   if (id === 'fixtures') loadFixtures();
 }
 
@@ -391,7 +397,7 @@ async function loadHome() {
     hist.innerHTML = '';
     [...data.matches].reverse().forEach(m => {
       const aWin = m.amitabh_total > m.shivam_total;
-      hist.innerHTML += matchCardHTML(m.match_id, m.desc, '', m.amitabh_total, m.shivam_total, aWin, [], []);
+      hist.innerHTML += matchCardHTML(m.match_id, m.desc, m.desc, m.amitabh_total, m.shivam_total, aWin, m.amitabh_players || [], m.shivam_players || []);
     });
 
   } catch(e) {
@@ -486,7 +492,7 @@ async function loadFixtures() {
         <div class="fixture-scores">
           <div class="fscore">
             <div class="fscore-team">${m.team1_short}</div>
-            <div class="fscore-runs">${m.team1_runs !== '-' ? m.team1_runs + '/' + m.team1_wkts + ' (${m.team1_overs})' : '—'}</div>
+            <div class="fscore-runs">${m.team1_runs !== '-' ? m.team1_runs + '/' + m.team1_wkts + ' (' + m.team1_overs + ')' : '—'}</div>
           </div>
           <div class="fscore">
             <div class="fscore-team">${m.team2_short}</div>
@@ -494,7 +500,7 @@ async function loadFixtures() {
           </div>
         </div>` : '';
 
-      const selectBtn = !isComplete ? `<button class="select-btn" onclick="openSelector('${m.match_id}', '${m.team1_short} vs ${m.team2_short}')">Select Players for this Match →</button>` : '';
+      const selectBtn = `<button class="select-btn" onclick="openSelector('${m.match_id}', '${m.team1_short} vs ${m.team2_short}')">Select Players for this Match →</button>`;
 
       list.innerHTML += `
       <div class="fixture-card ${isComplete ? '' : 'upcoming'}">
@@ -532,8 +538,14 @@ async function openSelector(matchId, matchName) {
       return;
     }
     allPlayers = data.players;
-    renderPlayerList('player-list-a', allPlayers, 'a');
-    renderPlayerList('player-list-s', allPlayers, 's');
+    const grouped = (data.team1_players && data.team1_players.length) ? {
+      team1: data.team1_short || data.team1,
+      team1_players: data.team1_players,
+      team2: data.team2_short || data.team2,
+      team2_players: data.team2_players
+    } : null;
+    renderPlayerList('player-list-a', allPlayers, 'a', grouped);
+    renderPlayerList('player-list-s', allPlayers, 's', grouped);
     document.querySelector('.selector-title').textContent = matchName;
     goToStep1();
     document.getElementById('selector-overlay').classList.add('open');
@@ -542,13 +554,28 @@ async function openSelector(matchId, matchName) {
   }
 }
 
-function renderPlayerList(containerId, players, team) {
+function renderPlayerList(containerId, players, team, grouped) {
   const el = document.getElementById(containerId);
-  el.innerHTML = players.map((p, i) => `
-    <div class="player-item" id="${containerId}-${i}" onclick="togglePlayer(${i}, '${team}', '${containerId}')">
-      <div class="player-num">${i+1}</div>
-      <div class="player-item-name">${p}</div>
-    </div>`).join('');
+  if (grouped) {
+    let html = '';
+    html += `<div class="team-group-head">${grouped.team1}</div>`;
+    grouped.team1_players.forEach(p => {
+      const i = players.indexOf(p);
+      html += `<div class="player-item" id="${containerId}-${i}" onclick="togglePlayer(${i}, '${team}', '${containerId}')"><div class="player-num">${i+1}</div><div class="player-item-name">${p}</div></div>`;
+    });
+    html += `<div class="team-group-head">${grouped.team2}</div>`;
+    grouped.team2_players.forEach(p => {
+      const i = players.indexOf(p);
+      html += `<div class="player-item" id="${containerId}-${i}" onclick="togglePlayer(${i}, '${team}', '${containerId}')"><div class="player-num">${i+1}</div><div class="player-item-name">${p}</div></div>`;
+    });
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = players.map((p, i) => `
+      <div class="player-item" id="${containerId}-${i}" onclick="togglePlayer(${i}, '${team}', '${containerId}')">
+        <div class="player-num">${i+1}</div>
+        <div class="player-item-name">${p}</div>
+      </div>`).join('');
+  }
 }
 
 function togglePlayer(idx, team, containerId) {

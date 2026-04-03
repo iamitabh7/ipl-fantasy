@@ -140,17 +140,29 @@ def get_players(match_id):
     scorecard = data.get('scorecard', [])
     if not scorecard:
         return jsonify({'error': 'No player data yet.', 'players': []})
-    all_players = set()
-    for innings in scorecard:
-        for b in innings.get('batsman', []):
-            all_players.add(b['name'])
-        for b in innings.get('bowler', []):
-            all_players.add(b['name'])
     header = data.get('matchHeader', {})
+    team1_name = header.get('team1', {}).get('name', '')
+    team2_name = header.get('team2', {}).get('name', '')
+    team1_short = header.get('team1', {}).get('shortName', '')
+    team2_short = header.get('team2', {}).get('shortName', '')
+    team1_players = set()
+    team2_players = set()
+    for innings in scorecard:
+        bat_team = innings.get('batTeamDetails', {}).get('batTeamName', '')
+        is_team1_batting = bat_team == team1_name
+        for b in innings.get('batsman', []):
+            (team1_players if is_team1_batting else team2_players).add(b['name'])
+        for b in innings.get('bowler', []):
+            (team2_players if is_team1_batting else team1_players).add(b['name'])
+    all_players = sorted(team1_players | team2_players)
     return jsonify({
-        'players': sorted(all_players),
-        'team1': header.get('team1', {}).get('name', ''),
-        'team2': header.get('team2', {}).get('name', ''),
+        'players': all_players,
+        'team1': team1_name,
+        'team1_short': team1_short,
+        'team1_players': sorted(team1_players),
+        'team2': team2_name,
+        'team2_short': team2_short,
+        'team2_players': sorted(team2_players),
         'status': data.get('status', ''),
         'match_id': match_id
     })
