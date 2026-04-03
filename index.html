@@ -177,6 +177,29 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
   .score-card{text-align:center;}
 }
 .team-group-head{font-size:11px;font-weight:600;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;padding:10px 4px 4px;margin-top:4px}
+
+/* DRAFT */
+.identity-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
+.identity-btn{padding:24px 16px;background:var(--surface2);border:2px solid var(--border2);border-radius:14px;color:var(--text);cursor:pointer;transition:all 0.2s;text-align:center;font-family:'DM Sans',sans-serif;width:100%}
+.identity-btn:hover{border-color:var(--amber);background:var(--amber-dim)}
+.identity-name{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700}
+.identity-emoji{font-size:22px;margin-top:6px}
+.last-match-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px;text-align:center}
+.last-match-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.last-match-score{font-size:13px;color:var(--text);font-weight:500}
+.last-match-first{font-size:11px;color:var(--amber);margin-top:4px}
+.draft-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:10px;margin-bottom:12px}
+.draft-turn-label{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--amber)}
+.draft-count{font-size:12px;color:var(--muted);font-weight:600}
+.draft-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.draft-col{background:var(--surface2);border-radius:10px;padding:10px 12px}
+.draft-col-head{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px}
+.amitabh-head{color:var(--amber)}
+.shivam-head{color:var(--blue)}
+.draft-pick-item{font-size:12px;color:var(--text);padding:4px 0;border-bottom:1px solid var(--border)}
+.draft-pick-item:last-child{border-bottom:none}
+.draft-pick-empty{font-size:12px;color:var(--hint);padding:4px 0;border-bottom:1px solid var(--border)}
+.draft-pick-empty:last-child{border-bottom:none}
 </style>
 </head>
 <body>
@@ -283,54 +306,61 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
   </div>
 </div>
 
-<!-- PLAYER SELECTOR OVERLAY -->
+<!-- DRAFT OVERLAY -->
 <div class="selector-overlay" id="selector-overlay">
   <div class="selector-sheet">
     <div class="selector-handle"></div>
 
-    <!-- Step 1: Amitabh picks -->
-    <div class="selector-step active" id="step-1">
-      <div class="selector-title">Amitabh's Picks</div>
-      <div class="selector-sub">Select 5 players from the Playing XI</div>
-      <div class="player-list" id="player-list-a"></div>
+    <!-- Step: Identity -->
+    <div class="selector-step active" id="step-identity">
+      <div class="selector-title" id="draft-match-name">Match</div>
+      <div class="selector-sub">Who are you drafting as?</div>
+      <div class="identity-grid">
+        <button class="identity-btn" onclick="identifyUser('amitabh')">
+          <div class="identity-name">Amitabh</div>
+          <div class="identity-emoji">🟡</div>
+        </button>
+        <button class="identity-btn" onclick="identifyUser('shivam')">
+          <div class="identity-name">Shivam</div>
+          <div class="identity-emoji">🔵</div>
+        </button>
+      </div>
+      <div id="last-match-info"></div>
       <div class="selector-footer">
-        <div class="sel-count">Selected: <span id="count-a">0</span>/5</div>
-        <button class="btn-primary" id="btn-next-a" disabled onclick="goToStep2()">Next → Amitabh's Captain</button>
         <button class="btn-secondary" onclick="closeSelector()">Cancel</button>
       </div>
     </div>
 
-    <!-- Step 2: Amitabh captain -->
-    <div class="selector-step" id="step-2">
-      <div class="selector-title">Amitabh's Captain</div>
-      <div class="selector-sub">Pick 1 captain — their points are doubled</div>
-      <div class="player-list" id="captain-list-a"></div>
+    <!-- Step: Draft Board -->
+    <div class="selector-step" id="step-draft">
+      <div class="draft-header">
+        <div class="draft-turn-label" id="draft-turn-display">Loading…</div>
+        <div class="draft-count" id="draft-picks-count">0/10</div>
+      </div>
+      <div id="draft-board"></div>
+      <div class="player-list" id="draft-player-list" style="margin-top:12px"></div>
       <div class="selector-footer">
-        <button class="btn-primary" id="btn-next-cap-a" disabled onclick="goToStep3()">Next → Shivam's Picks</button>
-        <button class="btn-secondary" onclick="goToStep1()">← Back</button>
+        <button class="btn-secondary" onclick="closeSelector()">Close</button>
       </div>
     </div>
 
-    <!-- Step 3: Shivam picks -->
-    <div class="selector-step" id="step-3">
-      <div class="selector-title">Shivam's Picks</div>
-      <div class="selector-sub">Select 5 players from the Playing XI</div>
-      <div class="player-list" id="player-list-s"></div>
+    <!-- Step: Captain -->
+    <div class="selector-step" id="step-captain">
+      <div class="selector-title">Pick Your Captain</div>
+      <div class="selector-sub">Their points are doubled ✕2</div>
+      <div class="player-list" id="captain-list-draft"></div>
       <div class="selector-footer">
-        <div class="sel-count">Selected: <span id="count-s">0</span>/5</div>
-        <button class="btn-primary" id="btn-next-s" disabled onclick="goToStep4()">Next → Shivam's Captain</button>
-        <button class="btn-secondary" onclick="goToStep2()">← Back</button>
+        <button class="btn-secondary" onclick="goToStep('step-draft')">← Back to Draft</button>
       </div>
     </div>
 
-    <!-- Step 4: Shivam captain -->
-    <div class="selector-step" id="step-4">
-      <div class="selector-title">Shivam's Captain</div>
-      <div class="selector-sub">Pick 1 captain — their points are doubled</div>
-      <div class="player-list" id="captain-list-s"></div>
+    <!-- Step: Complete -->
+    <div class="selector-step" id="step-complete">
+      <div class="selector-title">Draft Complete ✓</div>
+      <div class="selector-sub">Selections saved — good luck!</div>
+      <div id="draft-complete-summary"></div>
       <div class="selector-footer">
-        <button class="btn-primary" id="btn-save" disabled onclick="saveSelections()">Save Selections ✓</button>
-        <button class="btn-secondary" onclick="goToStep3()">← Back</button>
+        <button class="btn-primary" onclick="closeSelector()">Done</button>
       </div>
     </div>
 
@@ -342,11 +372,9 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 <script>
 const API = 'https://ipl-fantasy-api-5dao.onrender.com';
 let currentMatchId = null;
-let allPlayers = [];
-let amitabhPicks = [];
-let amitabhCaptain = null;
-let shivamPicks = [];
-let shivamCaptain = null;
+let currentUser = null;
+let draftState = null;
+let draftPollTimer = null;
 let liveMatchId = null;
 let liveInterval = null;
 
@@ -477,6 +505,12 @@ function toggleMatch(id) {
 }
 
 // ── FIXTURES ──────────────────────────────────────────
+function formatOvers(o) {
+  if (o === '-' || o == null) return '-';
+  const s = String(o), parts = s.split('.');
+  return (parts.length === 2 && parts[1] === '6') ? String(parseInt(parts[0]) + 1) : s;
+}
+
 async function loadFixtures() {
   const list = document.getElementById('fixtures-list');
   list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
@@ -488,20 +522,19 @@ async function loadFixtures() {
       const isComplete = m.state === 'Complete';
       const isLive = m.state === 'In Progress' || m.state === 'Live';
       const statusClass = isComplete ? 'complete' : (isLive ? '' : 'upcoming');
+      const t1o = formatOvers(m.team1_overs), t2o = formatOvers(m.team2_overs);
       const scoreHTML = isComplete || isLive ? `
         <div class="fixture-scores">
           <div class="fscore">
             <div class="fscore-team">${m.team1_short}</div>
-            <div class="fscore-runs">${m.team1_runs !== '-' ? m.team1_runs + '/' + m.team1_wkts + ' (' + m.team1_overs + ')' : '—'}</div>
+            <div class="fscore-runs">${m.team1_runs !== '-' ? m.team1_runs + '/' + m.team1_wkts + ' (' + t1o + ')' : '—'}</div>
           </div>
           <div class="fscore">
             <div class="fscore-team">${m.team2_short}</div>
-            <div class="fscore-runs">${m.team2_runs !== '-' ? m.team2_runs + '/' + m.team2_wkts : '—'}</div>
+            <div class="fscore-runs">${m.team2_runs !== '-' ? m.team2_runs + '/' + m.team2_wkts + ' (' + t2o + ')' : '—'}</div>
           </div>
         </div>` : '';
-
-      const selectBtn = `<button class="select-btn" onclick="openSelector('${m.match_id}', '${m.team1_short} vs ${m.team2_short}')">Select Players for this Match →</button>`;
-
+      const selectBtn = `<button class="select-btn" onclick="openSelector('${m.match_id}', '${m.team1_short} vs ${m.team2_short}')">Select Players →</button>`;
       list.innerHTML += `
       <div class="fixture-card ${isComplete ? '' : 'upcoming'}">
         <div class="fixture-top">
@@ -520,162 +553,212 @@ async function loadFixtures() {
   }
 }
 
-// ── PLAYER SELECTOR ───────────────────────────────────
+// ── DRAFT ─────────────────────────────────────────────
 async function openSelector(matchId, matchName) {
   currentMatchId = matchId;
-  amitabhPicks = [];
-  amitabhCaptain = null;
-  shivamPicks = [];
-  shivamCaptain = null;
-
-  showToast('Fetching players...');
-
+  currentUser = localStorage.getItem('draft-user-' + matchId) || null;
+  document.getElementById('draft-match-name').textContent = matchName;
+  goToStep('step-identity');
+  document.getElementById('selector-overlay').classList.add('open');
   try {
-    const res = await fetch(API + '/api/players/' + matchId);
-    const data = await res.json();
-    if (data.error || !data.players.length) {
-      showToast('No players yet. Try after match starts.');
-      return;
-    }
-    allPlayers = data.players;
-    const grouped = (data.team1_players && data.team1_players.length) ? {
-      team1: data.team1_short || data.team1,
-      team1_players: data.team1_players,
-      team2: data.team2_short || data.team2,
-      team2_players: data.team2_players
-    } : null;
-    renderPlayerList('player-list-a', allPlayers, 'a', grouped);
-    renderPlayerList('player-list-s', allPlayers, 's', grouped);
-    document.querySelector('.selector-title').textContent = matchName;
-    goToStep1();
-    document.getElementById('selector-overlay').classList.add('open');
-  } catch(e) {
-    showToast('Error fetching players.');
-  }
+    const res = await fetch(API + '/api/draft/' + matchId);
+    draftState = await res.json();
+    renderLastMatchInfo(draftState);
+    if (currentUser) afterIdentify();
+  } catch(e) { showToast('Error loading draft.'); }
 }
 
-function renderPlayerList(containerId, players, team, grouped) {
-  const el = document.getElementById(containerId);
-  if (grouped) {
+async function identifyUser(user) {
+  currentUser = user;
+  localStorage.setItem('draft-user-' + currentMatchId, user);
+  await fetch(API + '/api/draft/' + currentMatchId + '/start', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user})
+  });
+  const res = await fetch(API + '/api/draft/' + currentMatchId);
+  draftState = await res.json();
+  afterIdentify();
+}
+
+function afterIdentify() {
+  const s = draftState;
+  if (!s) return;
+  if ((s.picks || []).length >= 10) {
+    const myCap = currentUser === 'amitabh' ? s.amitabh_captain : s.shivam_captain;
+    if (s.is_complete) { showCompleteScreen(s); return; }
+    if (!myCap) { showCaptainScreen(s); return; }
+  }
+  goToStep('step-draft');
+  renderDraftBoard(s);
+  startDraftPolling();
+}
+
+function renderLastMatchInfo(state) {
+  const el = document.getElementById('last-match-info');
+  if (!el || !state || !state.last_match_desc) return;
+  const winner = state.last_match_winner === 'amitabh' ? 'Amitabh' : 'Shivam';
+  const loser  = state.last_match_winner === 'amitabh' ? 'Shivam'  : 'Amitabh';
+  el.innerHTML = `<div class="last-match-box">
+    <div class="last-match-label">${state.last_match_desc}</div>
+    <div class="last-match-score">${winner} won · A ${state.last_match_amitabh} – S ${state.last_match_shivam}</div>
+    <div class="last-match-first">${loser} picks first 🏏</div>
+  </div>`;
+}
+
+function renderDraftBoard(state) {
+  const picks = state.picks || [];
+  const n = picks.length;
+  const done = n >= 10;
+  const isMyTurn = !done && state.current_turn === currentUser;
+  const turnName = state.current_turn === 'amitabh' ? 'Amitabh' : 'Shivam';
+  document.getElementById('draft-turn-display').textContent =
+    done ? 'All picks done!' : isMyTurn ? 'Your turn to pick' : `${turnName}'s turn…`;
+  document.getElementById('draft-picks-count').textContent = n + '/10';
+
+  const aPicks = picks.filter(p => p.user === 'amitabh').map(p => p.player);
+  const sPicks = picks.filter(p => p.user === 'shivam').map(p => p.player);
+  document.getElementById('draft-board').innerHTML = `
+    <div class="draft-cols">
+      <div class="draft-col">
+        <div class="draft-col-head amitabh-head">Amitabh (${aPicks.length}/5)</div>
+        ${aPicks.map(p => `<div class="draft-pick-item">${p}</div>`).join('')}
+        ${Array(5 - aPicks.length).fill('<div class="draft-pick-empty">—</div>').join('')}
+      </div>
+      <div class="draft-col">
+        <div class="draft-col-head shivam-head">Shivam (${sPicks.length}/5)</div>
+        ${sPicks.map(p => `<div class="draft-pick-item">${p}</div>`).join('')}
+        ${Array(5 - sPicks.length).fill('<div class="draft-pick-empty">—</div>').join('')}
+      </div>
+    </div>`;
+
+  const pickedNames = picks.map(p => p.player);
+  const pl = document.getElementById('draft-player-list');
+  if (isMyTurn) {
     let html = '';
-    html += `<div class="team-group-head">${grouped.team1}</div>`;
-    grouped.team1_players.forEach(p => {
-      const i = players.indexOf(p);
-      html += `<div class="player-item" id="${containerId}-${i}" onclick="togglePlayer(${i}, '${team}', '${containerId}')"><div class="player-num">${i+1}</div><div class="player-item-name">${p}</div></div>`;
-    });
-    html += `<div class="team-group-head">${grouped.team2}</div>`;
-    grouped.team2_players.forEach(p => {
-      const i = players.indexOf(p);
-      html += `<div class="player-item" id="${containerId}-${i}" onclick="togglePlayer(${i}, '${team}', '${containerId}')"><div class="player-num">${i+1}</div><div class="player-item-name">${p}</div></div>`;
-    });
-    el.innerHTML = html;
+    if (state.team1_players && state.team1_players.length) {
+      const t1 = state.team1_players.filter(p => !pickedNames.includes(p));
+      const t2 = (state.team2_players || []).filter(p => !pickedNames.includes(p));
+      if (t1.length) html += `<div class="team-group-head">${state.team1_short || 'Team 1'}</div>` + t1.map(p => playerPickBtn(p)).join('');
+      if (t2.length) html += `<div class="team-group-head">${state.team2_short || 'Team 2'}</div>` + t2.map(p => playerPickBtn(p)).join('');
+    } else {
+      html = (state.players || []).filter(p => !pickedNames.includes(p)).map(p => playerPickBtn(p)).join('');
+    }
+    if (!html) html = '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">No players available yet — check back after the toss.</p>';
+    pl.innerHTML = html;
+  } else if (!done) {
+    pl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">${turnName} is picking…<br><span style="font-size:11px;color:var(--hint)">Auto-refreshes every 3s</span></div>`;
   } else {
-    el.innerHTML = players.map((p, i) => `
-      <div class="player-item" id="${containerId}-${i}" onclick="togglePlayer(${i}, '${team}', '${containerId}')">
-        <div class="player-num">${i+1}</div>
-        <div class="player-item-name">${p}</div>
-      </div>`).join('');
+    pl.innerHTML = '';
+    const myCap = currentUser === 'amitabh' ? state.amitabh_captain : state.shivam_captain;
+    if (!myCap && currentUser) setTimeout(() => showCaptainScreen(state), 400);
   }
 }
 
-function togglePlayer(idx, team, containerId) {
-  const picks = team === 'a' ? amitabhPicks : shivamPicks;
-  const name = allPlayers[idx];
-  const el = document.getElementById(containerId + '-' + idx);
-  const countEl = document.getElementById('count-' + team);
-  const btnEl = document.getElementById('btn-next-' + team);
-
-  if (picks.includes(name)) {
-    picks.splice(picks.indexOf(name), 1);
-    el.classList.remove('selected');
-    el.querySelector('.player-item-badge')?.remove();
-  } else {
-    if (picks.length >= 5) { showToast('Already selected 5 players!'); return; }
-    picks.push(name);
-    el.classList.add('selected');
-    el.innerHTML += '<span class="player-item-badge badge-sel">✓</span>';
-  }
-
-  if (team === 'a') amitabhPicks = picks;
-  else shivamPicks = picks;
-
-  countEl.textContent = picks.length;
-  btnEl.disabled = picks.length !== 5;
+function playerPickBtn(p) {
+  return `<div class="player-item" onclick='makeDraftPick(${JSON.stringify(p)})'><div class="player-item-name">${p}</div></div>`;
 }
 
-function renderCaptainList(containerId, picks, team) {
-  const el = document.getElementById(containerId);
-  el.innerHTML = picks.map((p, i) => `
-    <div class="player-item" id="${containerId}-${i}" onclick="selectCaptain(${i}, '${team}', '${containerId}')">
-      <div class="player-num">${i+1}</div>
+async function makeDraftPick(player) {
+  try {
+    const res = await fetch(API + '/api/draft/' + currentMatchId + '/pick', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user: currentUser, player})
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error); return; }
+    draftState = Object.assign({}, draftState, data);
+    renderDraftBoard(draftState);
+  } catch(e) { showToast('Error making pick.'); }
+}
+
+function showCaptainScreen(state) {
+  const myPicks = (state.picks || []).filter(p => p.user === currentUser).map(p => p.player);
+  document.getElementById('captain-list-draft').innerHTML = myPicks.map(p => `
+    <div class="player-item" onclick='makeCaptainPick(${JSON.stringify(p)})'>
       <div class="player-item-name">${p}</div>
       <span style="font-size:11px;color:var(--muted)">2× pts</span>
     </div>`).join('');
+  goToStep('step-captain');
 }
 
-function selectCaptain(idx, team, containerId) {
-  document.querySelectorAll(`#${containerId} .player-item`).forEach(el => {
-    el.classList.remove('captain');
-    const b = el.querySelector('.badge-cap');
-    if (b) b.remove();
-  });
-  const el = document.getElementById(containerId + '-' + idx);
-  el.classList.add('captain');
-  el.innerHTML += '<span class="player-item-badge badge-cap">C</span>';
-  if (team === 'a') {
-    amitabhCaptain = amitabhPicks[idx];
-    document.getElementById('btn-next-cap-a').disabled = false;
-  } else {
-    shivamCaptain = shivamPicks[idx];
-    document.getElementById('btn-save').disabled = false;
-  }
-}
-
-function goToStep1() {
-  document.querySelectorAll('.selector-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('step-1').classList.add('active');
-}
-function goToStep2() {
-  renderCaptainList('captain-list-a', amitabhPicks, 'a');
-  document.querySelectorAll('.selector-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('step-2').classList.add('active');
-}
-function goToStep3() {
-  document.querySelectorAll('.selector-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('step-3').classList.add('active');
-}
-function goToStep4() {
-  renderCaptainList('captain-list-s', shivamPicks, 's');
-  document.querySelectorAll('.selector-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('step-4').classList.add('active');
-}
-function closeSelector() {
-  document.getElementById('selector-overlay').classList.remove('open');
-}
-
-async function saveSelections() {
+async function makeCaptainPick(captain) {
   try {
-    const res = await fetch(API + '/api/select', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        match_id: currentMatchId,
-        amitabh_players: amitabhPicks,
-        amitabh_captain: amitabhCaptain,
-        shivam_players: shivamPicks,
-        shivam_captain: shivamCaptain
-      })
+    const res = await fetch(API + '/api/draft/' + currentMatchId + '/captain', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user: currentUser, captain})
     });
     const data = await res.json();
-    if (data.success) {
-      closeSelector();
-      showToast('Selections saved! ✓', 'success');
-      liveMatchId = currentMatchId;
-      startLiveUpdates();
+    if (data.error) { showToast(data.error); return; }
+    draftState = Object.assign({}, draftState, data);
+    if (data.is_complete) {
+      showCompleteScreen(draftState);
+      showToast('Draft complete! Selections saved ✓', 'success');
+    } else {
+      goToStep('step-draft');
+      renderDraftBoard(draftState);
+      showToast('Captain set! Waiting for other player…');
     }
-  } catch(e) {
-    showToast('Error saving selections.');
-  }
+  } catch(e) { showToast('Error setting captain.'); }
+}
+
+function showCompleteScreen(state) {
+  stopDraftPolling();
+  const aPicks = (state.picks || []).filter(p => p.user === 'amitabh').map(p => p.player);
+  const sPicks = (state.picks || []).filter(p => p.user === 'shivam').map(p => p.player);
+  document.getElementById('draft-complete-summary').innerHTML = `
+    <div class="draft-cols" style="margin-top:16px">
+      <div class="draft-col">
+        <div class="draft-col-head amitabh-head">Amitabh</div>
+        ${aPicks.map(p => `<div class="draft-pick-item">${p}${p === state.amitabh_captain ? ' <span class="cap">C</span>' : ''}</div>`).join('')}
+      </div>
+      <div class="draft-col">
+        <div class="draft-col-head shivam-head">Shivam</div>
+        ${sPicks.map(p => `<div class="draft-pick-item">${p}${p === state.shivam_captain ? ' <span class="cap">C</span>' : ''}</div>`).join('')}
+      </div>
+    </div>`;
+  goToStep('step-complete');
+}
+
+function goToStep(id) {
+  document.querySelectorAll('.selector-step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startDraftPolling() {
+  stopDraftPolling();
+  draftPollTimer = setInterval(async () => {
+    if (!currentMatchId) return;
+    try {
+      const res = await fetch(API + '/api/draft/' + currentMatchId);
+      const fresh = await res.json();
+      const prev = draftState || {};
+      // Preserve player lists if fresh response has empty (match not started yet)
+      if (!fresh.players || !fresh.players.length) {
+        fresh.players = prev.players || [];
+        fresh.team1_players = prev.team1_players || [];
+        fresh.team2_players = prev.team2_players || [];
+        fresh.team1_short = prev.team1_short || '';
+        fresh.team2_short = prev.team2_short || '';
+      }
+      draftState = fresh;
+      const active = document.querySelector('.selector-step.active');
+      if (!active) return;
+      if (active.id === 'step-draft') {
+        renderDraftBoard(fresh);
+        if (fresh.is_complete) { showCompleteScreen(fresh); stopDraftPolling(); }
+      } else if (active.id === 'step-captain' && fresh.is_complete) {
+        showCompleteScreen(fresh); stopDraftPolling();
+      }
+    } catch(e) {}
+  }, 3000);
+}
+
+function stopDraftPolling() {
+  if (draftPollTimer) { clearInterval(draftPollTimer); draftPollTimer = null; }
+}
+
+function closeSelector() {
+  document.getElementById('selector-overlay').classList.remove('open');
+  stopDraftPolling();
 }
 
 // ── LIVE UPDATES ──────────────────────────────────────

@@ -36,8 +36,77 @@ def init_db():
             created_at INTEGER
         )
     ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS drafts (
+            match_id TEXT PRIMARY KEY,
+            first_pick TEXT DEFAULT 'amitabh',
+            picks TEXT DEFAULT '[]',
+            amitabh_captain TEXT DEFAULT '',
+            shivam_captain TEXT DEFAULT '',
+            is_complete INTEGER DEFAULT 0,
+            created_at INTEGER
+        )
+    ''')
     conn.commit()
     conn.close()
+
+def get_last_match_info():
+    """Last completed match result, used to determine first pick in draft."""
+    # Match 6 — KKR vs SRH (update when a new match completes)
+    a, s = 198, 283
+    winner = 'amitabh' if a > s else 'shivam'
+    loser  = 'shivam'  if winner == 'amitabh' else 'amitabh'
+    return {
+        'last_match_desc': 'Match 6 — KKR vs SRH',
+        'last_match_winner': winner,
+        'last_match_loser': loser,
+        'last_match_amitabh': a,
+        'last_match_shivam': s,
+    }
+
+_player_cache = {}
+
+def get_players_cached(match_id):
+    if match_id in _player_cache:
+        return _player_cache[match_id]
+    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
+    scorecard = data.get('scorecard', [])
+    header = data.get('matchHeader', {})
+    team1_name  = header.get('team1', {}).get('name', '')
+    team2_name  = header.get('team2', {}).get('name', '')
+    team1_short = header.get('team1', {}).get('shortName', '')
+    team2_short = header.get('team2', {}).get('shortName', '')
+    t1, t2 = set(), set()
+    for inn in scorecard:
+        bat = inn.get('batTeamDetails', {}).get('batTeamName', '')
+        is_t1 = bat == team1_name
+        for b in inn.get('batsman', []): (t1 if is_t1 else t2).add(b['name'])
+        for b in inn.get('bowler', []):  (t2 if is_t1 else t1).add(b['name'])
+    result = {
+        'players': sorted(t1 | t2),
+        'team1': team1_name, 'team1_short': team1_short, 'team1_players': sorted(t1),
+        'team2': team2_name, 'team2_short': team2_short, 'team2_players': sorted(t2),
+    }
+    if result['players']:
+        _player_cache[match_id] = result
+    return result
+
+def draft_turn(first, n):
+    second = 'shivam' if first == 'amitabh' else 'amitabh'
+    return None if n >= 10 else (first if n % 2 == 0 else second)
+
+def build_draft_response(row, picks):
+    first = row['first_pick']
+    last  = get_last_match_info()
+    return {
+        'picks': picks,
+        'first_pick': first,
+        'current_turn': draft_turn(first, len(picks)),
+        'amitabh_captain': row['amitabh_captain'] or '',
+        'shivam_captain':  row['shivam_captain']  or '',
+        'is_complete': bool(row['is_complete']),
+        **last,
+    }
 
 def cricbuzz_get(path):
     url = f'https://{API_HOST}{path}'
@@ -176,6 +245,96 @@ def get_players(match_id):
         'status': data.get('status', ''),
         'match_id': match_id
     })
+
+@app.route('/api/draft/<match_id>')
+def get_draft(match_id):
+    conn = get_db()
+    row = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    conn.close()
+    player_data = get_players_cached(match_id)
+    last = get_last_match_info()
+    if not row:
+        return jsonify({
+            'exists': False, 'picks': [],
+            'first_pick': last['last_match_loser'],
+            'current_turn': last['last_match_loser'],
+            'amitabh_captain': '', 'shivam_captain': '', 'is_complete': False,
+            **player_data, **last,
+        })
+    picks = json.loads(row['picks'])
+    return jsonify({**build_draft_response(dict(row), picks), **player_data, 'exists': True})
+
+@app.route('/api/draft/<match_id>/start', methods=['POST'])
+def start_draft(match_id):
+    conn = get_db()
+    row = conn.execute('SELECT match_id FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    if not row:
+        first = get_last_match_info()['last_match_loser']
+        conn.execute(
+            'INSERT INTO drafts (match_id, first_pick, picks, amitabh_captain, shivam_captain, is_complete, created_at) VALUES (?,?,?,?,?,?,?)',
+            (match_id, first, '[]', '', '', 0, int(time.time()))
+        )
+        conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+@app.route('/api/draft/<match_id>/pick', methods=['POST'])
+def make_pick(match_id):
+    data = request.json
+    user, player = data.get('user'), data.get('player')
+    if user not in ('amitabh', 'shivam') or not player:
+        return jsonify({'error': 'Invalid input'}), 400
+    conn = get_db()
+    row = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    if not row:
+        conn.close(); return jsonify({'error': 'Draft not started'}), 400
+    picks = json.loads(row['picks'])
+    if len(picks) >= 10:
+        conn.close(); return jsonify({'error': 'All picks done'}), 400
+    if draft_turn(row['first_pick'], len(picks)) != user:
+        conn.close(); return jsonify({'error': 'Not your turn'}), 400
+    if any(p['player'] == player for p in picks):
+        conn.close(); return jsonify({'error': 'Player already picked'}), 400
+    picks.append({'player': player, 'user': user})
+    conn.execute('UPDATE drafts SET picks = ? WHERE match_id = ?', (json.dumps(picks), match_id))
+    conn.commit()
+    result = build_draft_response(dict(row), picks)
+    conn.close()
+    return jsonify(result)
+
+@app.route('/api/draft/<match_id>/captain', methods=['POST'])
+def set_captain(match_id):
+    data = request.json
+    user, captain = data.get('user'), data.get('captain')
+    if user not in ('amitabh', 'shivam') or not captain:
+        return jsonify({'error': 'Invalid input'}), 400
+    conn = get_db()
+    row = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    if not row:
+        conn.close(); return jsonify({'error': 'Draft not found'}), 400
+    picks = json.loads(row['picks'])
+    if len(picks) < 10:
+        conn.close(); return jsonify({'error': 'Draft picks not complete'}), 400
+    user_picks = [p['player'] for p in picks if p['user'] == user]
+    if captain not in user_picks:
+        conn.close(); return jsonify({'error': 'Captain must be one of your picks'}), 400
+    col = 'amitabh_captain' if user == 'amitabh' else 'shivam_captain'
+    conn.execute(f'UPDATE drafts SET {col} = ? WHERE match_id = ?', (captain, match_id))
+    conn.commit()
+    row2 = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    a_cap, s_cap = row2['amitabh_captain'] or '', row2['shivam_captain'] or ''
+    if a_cap and s_cap:
+        a_players = [p['player'] for p in picks if p['user'] == 'amitabh']
+        s_players = [p['player'] for p in picks if p['user'] == 'shivam']
+        conn.execute('''INSERT OR REPLACE INTO selections
+            (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)''',
+            (match_id, json.dumps(a_players), a_cap, json.dumps(s_players), s_cap, int(time.time())))
+        conn.execute('UPDATE drafts SET is_complete = 1 WHERE match_id = ?', (match_id,))
+        conn.commit()
+    result = build_draft_response(dict(row2), picks)
+    conn.close()
+    return jsonify(result)
 
 @app.route('/api/select', methods=['POST'])
 def save_selection():
