@@ -9,22 +9,6 @@ from datetime import datetime, timezone, timedelta
 app = Flask(__name__)
 CORS(app)
 
-# Run on every import so gunicorn (which skips __main__) still creates tables
-def _ensure_db():
-    conn = get_db()
-    conn.execute('''CREATE TABLE IF NOT EXISTS selections (
-        match_id TEXT PRIMARY KEY, amitabh_players TEXT, amitabh_captain TEXT,
-        shivam_players TEXT, shivam_captain TEXT, created_at INTEGER)''')
-    conn.execute('''CREATE TABLE IF NOT EXISTS drafts (
-        match_id TEXT PRIMARY KEY, first_pick TEXT DEFAULT 'amitabh',
-        picks TEXT DEFAULT '[]', amitabh_captain TEXT DEFAULT '',
-        shivam_captain TEXT DEFAULT '', is_complete INTEGER DEFAULT 0,
-        created_at INTEGER)''')
-    conn.commit()
-    conn.close()
-
-_ensure_db()
-
 API_KEY = 'af7e0d6342mshf4bafbb8b9f34a4p142027jsne77b07afae99'
 API_HOST = 'cricbuzz-cricket.p.rapidapi.com'
 IPL_SERIES_ID = 9241
@@ -39,6 +23,22 @@ def get_db():
     conn = sqlite3.connect('fantasy.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+# Called at module level so gunicorn (which skips __main__) still creates tables
+def _ensure_db():
+    conn = get_db()
+    conn.execute('''CREATE TABLE IF NOT EXISTS selections (
+        match_id TEXT PRIMARY KEY, amitabh_players TEXT, amitabh_captain TEXT,
+        shivam_players TEXT, shivam_captain TEXT, created_at INTEGER)''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS drafts (
+        match_id TEXT PRIMARY KEY, first_pick TEXT DEFAULT 'amitabh',
+        picks TEXT DEFAULT '[]', amitabh_captain TEXT DEFAULT '',
+        shivam_captain TEXT DEFAULT '', is_complete INTEGER DEFAULT 0,
+        created_at INTEGER)''')
+    conn.commit()
+    conn.close()
+
+_ensure_db()
 
 def init_db():
     conn = get_db()
