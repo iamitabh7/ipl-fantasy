@@ -507,9 +507,9 @@ async function loadFixtures() {
         <div class="fixture-top">
           <div>
             <div class="fixture-teams">${m.team1_short} vs ${m.team2_short}</div>
-            <div class="fixture-desc">${m.desc} · ${m.city}</div>
+            <div class="fixture-desc">${m.desc}${m.city ? ' · ' + m.city : ''}</div>
           </div>
-          <div class="fixture-status ${statusClass}">${isLive ? '🔴 Live' : m.status || 'Upcoming'}</div>
+          <div class="fixture-status ${statusClass}">${isLive ? '🔴 Live' : isComplete ? (m.status || 'Complete') : (m.start_ist || 'Upcoming')}</div>
         </div>
         ${scoreHTML}
         ${selectBtn}

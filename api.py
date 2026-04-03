@@ -4,12 +4,20 @@ import urllib.request
 import json
 import sqlite3
 import time
+from datetime import datetime, timezone, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
 API_KEY = 'af7e0d6342mshf4bafbb8b9f34a4p142027jsne77b07afae99'
 API_HOST = 'cricbuzz-cricket.p.rapidapi.com'
+IPL_SERIES_ID = 9241
+IST = timezone(timedelta(hours=5, minutes=30))
+
+# Labels for matches tracked by ID (used in season history for DB-sourced matches)
+KNOWN_MATCH_LABELS = {
+    '149684': 'Match 7 — CSK vs PBKS',
+}
 
 def get_db():
     conn = sqlite3.connect('fantasy.db')
@@ -98,40 +106,42 @@ def serve_frontend():
     return send_from_directory('.', 'index.html')
 @app.route('/api/fixtures')
 def get_fixtures():
-    data = cricbuzz_get('/matches/v1/recent')
+    data = cricbuzz_get(f'/series/v1/{IPL_SERIES_ID}')
     matches = []
-    for tm in data.get('typeMatches', []):
-        for sm in tm.get('seriesMatches', []):
-            wrap = sm.get('seriesAdWrapper', {})
-            if 'Indian Premier League' not in wrap.get('seriesName', ''):
-                continue
-            for m in wrap.get('matches', []):
-                mi = m.get('matchInfo', {})
-                ms = m.get('matchScore', {})
-                t1 = mi.get('team1', {})
-                t2 = mi.get('team2', {})
-                t1score = ms.get('team1Score', {}).get('inngs1', {})
-                t2score = ms.get('team2Score', {}).get('inngs1', {})
-                matches.append({
-                    'match_id': str(mi.get('matchId', '')),
-                    'desc': mi.get('matchDesc', ''),
-                    'team1': t1.get('teamName', ''),
-                    'team1_short': t1.get('teamSName', ''),
-                    'team1_runs': t1score.get('runs', '-'),
-                    'team1_wkts': t1score.get('wickets', '-'),
-                    'team1_overs': t1score.get('overs', '-'),
-                    'team2': t2.get('teamName', ''),
-                    'team2_short': t2.get('teamSName', ''),
-                    'team2_runs': t2score.get('runs', '-'),
-                    'team2_wkts': t2score.get('wickets', '-'),
-                    'team2_overs': t2score.get('overs', '-'),
-                    'status': mi.get('status', ''),
-                    'state': mi.get('state', ''),
-                    'start_date': mi.get('startDate', ''),
-                    'venue': mi.get('venueInfo', {}).get('ground', ''),
-                    'city': mi.get('venueInfo', {}).get('city', ''),
-                })
-    matches.sort(key=lambda x: x.get('start_date', ''), reverse=True)
+    for item in data.get('matchDetails', []):
+        md = item.get('matchDetailsMap', {})
+        if md.get('seriesId') != IPL_SERIES_ID:
+            continue
+        for m in md.get('match', []):
+            mi = m.get('matchInfo', {})
+            ms = m.get('matchScore', {})
+            t1 = mi.get('team1', {})
+            t2 = mi.get('team2', {})
+            t1score = ms.get('team1Score', {}).get('inngs1', {})
+            t2score = ms.get('team2Score', {}).get('inngs1', {})
+            start_ms = int(mi.get('startDate', 0))
+            dt_ist = datetime.fromtimestamp(start_ms / 1000, tz=IST)
+            matches.append({
+                'match_id': str(mi.get('matchId', '')),
+                'desc': mi.get('matchDesc', ''),
+                'team1': t1.get('teamName', ''),
+                'team1_short': t1.get('teamSName', ''),
+                'team1_runs': t1score.get('runs', '-'),
+                'team1_wkts': t1score.get('wickets', '-'),
+                'team1_overs': t1score.get('overs', '-'),
+                'team2': t2.get('teamName', ''),
+                'team2_short': t2.get('teamSName', ''),
+                'team2_runs': t2score.get('runs', '-'),
+                'team2_wkts': t2score.get('wickets', '-'),
+                'team2_overs': t2score.get('overs', '-'),
+                'status': mi.get('status', ''),
+                'state': mi.get('state', ''),
+                'start_date': mi.get('startDate', ''),
+                'start_ist': dt_ist.strftime('%-d %b · %-I:%M %p IST'),
+                'venue': mi.get('venueInfo', {}).get('ground', ''),
+                'city': mi.get('venueInfo', {}).get('city', ''),
+            })
+    matches.sort(key=lambda x: int(x['start_date']) if x['start_date'] else 0)
     return jsonify(matches)
 
 @app.route('/api/players/<match_id>')
@@ -352,7 +362,7 @@ def get_season():
         s_total += st
         past_matches.append({
             'match_id': mid,
-            'desc': data.get('status', ''),
+            'desc': KNOWN_MATCH_LABELS.get(mid, data.get('status', '')),
             'amitabh_total': at,
             'shivam_total': st,
             'amitabh_players': a_players,
