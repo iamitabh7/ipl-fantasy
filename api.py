@@ -92,6 +92,9 @@ def get_last_match_info():
     }
 
 _player_cache = {}
+_fixtures_cache = {'data': None, 'ts': 0}
+_season_cache   = {'data': None, 'ts': 0}
+CACHE_TTL = 300  # seconds — refresh at most every 5 minutes
 
 def get_players_cached(match_id):
     if match_id in _player_cache:
@@ -211,6 +214,10 @@ def serve_frontend():
     return send_from_directory('.', 'index.html')
 @app.route('/api/fixtures')
 def get_fixtures():
+    now = time.time()
+    if _fixtures_cache['data'] and now - _fixtures_cache['ts'] < CACHE_TTL:
+        return jsonify(_fixtures_cache['data'])
+
     data = cricbuzz_get(f'/series/v1/{IPL_SERIES_ID}')
     matches = []
     for item in data.get('matchDetails', []):
@@ -247,6 +254,14 @@ def get_fixtures():
                 'city': mi.get('venueInfo', {}).get('city', ''),
             })
     matches.sort(key=lambda x: int(x['start_date']) if x['start_date'] else 0)
+
+    if matches:
+        _fixtures_cache['data'] = matches
+        _fixtures_cache['ts'] = now
+    elif _fixtures_cache['data']:
+        # API failed (rate limit / outage) — return last good response
+        return jsonify(_fixtures_cache['data'])
+
     return jsonify(matches)
 
 @app.route('/api/players/<match_id>')
@@ -429,6 +444,9 @@ def get_live_score(match_id):
 
 @app.route('/api/season')
 def get_season():
+    now = time.time()
+    if _season_cache['data'] and now - _season_cache['ts'] < CACHE_TTL:
+        return jsonify(_season_cache['data'])
     past_matches = [
         {
             'match_id': '149618', 'desc': 'Match 1 — RCB vs SRH',
@@ -571,13 +589,16 @@ def get_season():
             'shivam_players': s_players,
         })
 
-    return jsonify({
+    result = {
         'amitabh_total': a_total,
         'shivam_total': s_total,
         'matches': past_matches,
         'leader': 'amitabh' if a_total > s_total else 'shivam',
         'gap': abs(a_total - s_total)
-    })
+    }
+    _season_cache['data'] = result
+    _season_cache['ts'] = time.time()
+    return jsonify(result)
 
 if __name__ == '__main__':
     init_db()
