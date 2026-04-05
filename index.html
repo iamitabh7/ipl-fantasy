@@ -333,6 +333,16 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
       </div>
     </div>
 
+    <!-- Step: Team Choice (winner of last match chooses their team before toss) -->
+    <div class="selector-step" id="step-team-choice">
+      <div class="selector-title">Choose Your Team</div>
+      <div class="selector-sub">You won the last match — pick which team you want. Toss winner picks first.</div>
+      <div class="identity-grid" id="team-choice-btns"></div>
+      <div class="selector-footer">
+        <button class="btn-secondary" onclick="goToStep('step-identity')">← Back</button>
+      </div>
+    </div>
+
     <!-- Step: Draft Board -->
     <div class="selector-step" id="step-draft">
       <div class="draft-header">
@@ -524,6 +534,10 @@ async function loadFixtures() {
     const matches = await fixturesRes.json();
     const savedIds = new Set(await selectionsRes.json());
     list.innerHTML = '';
+    if (!matches.length) {
+      list.innerHTML = '<p style="color:var(--muted);padding:16px">No fixtures found. Check back soon.</p>';
+      return;
+    }
     matches.forEach(m => {
       const isComplete = m.state === 'Complete';
       const isLive = m.state === 'In Progress' || m.state === 'Live';
@@ -596,8 +610,22 @@ async function openSelector(matchId, matchName) {
   goToStep('step-identity');
   document.getElementById('selector-overlay').classList.add('open');
   try {
-    const res = await fetch(API + '/api/draft/' + matchId);
-    draftState = await res.json();
+    const [draftRes, playersRes] = await Promise.all([
+      fetch(API + '/api/draft/' + matchId),
+      fetch(API + '/api/match/' + matchId + '/players'),
+    ]);
+    draftState = await draftRes.json();
+    const playerData = await playersRes.json();
+    // Override scorecard-only players with the richer merged set
+    if (playerData.team1_players && playerData.team1_players.length) {
+      draftState.team1_players = playerData.team1_players.map(p => p.name || p);
+      draftState.team2_players = (playerData.team2_players || []).map(p => p.name || p);
+      draftState.players = [...draftState.team1_players, ...draftState.team2_players];
+      draftState.team1_short = playerData.team1_short || draftState.team1_short;
+      draftState.team2_short = playerData.team2_short || draftState.team2_short;
+      draftState.team1 = playerData.team1 || draftState.team1;
+      draftState.team2 = playerData.team2 || draftState.team2;
+    }
     renderLastMatchInfo(draftState);
     if (currentUser) afterIdentify();
   } catch(e) { showToast('Error loading draft.'); }
@@ -617,6 +645,13 @@ async function identifyUser(user) {
 function afterIdentify() {
   const s = draftState;
   if (!s) return;
+  // Step 1: winner must choose their team before drafting begins
+  const myChoice = currentUser === 'amitabh' ? s.amitabh_team_choice : s.shivam_team_choice;
+  const isWinner = s.last_match_winner === currentUser;
+  if (isWinner && !myChoice && (s.team1 || s.team1_short)) {
+    showTeamChoiceStep(s);
+    return;
+  }
   if ((s.picks || []).length >= 10) {
     const myCap = currentUser === 'amitabh' ? s.amitabh_captain : s.shivam_captain;
     if (s.is_complete) { showCompleteScreen(s); return; }
@@ -627,15 +662,43 @@ function afterIdentify() {
   startDraftPolling();
 }
 
+function showTeamChoiceStep(state) {
+  const t1Label = state.team1_short || state.team1 || 'Team 1';
+  const t2Label = state.team2_short || state.team2 || 'Team 2';
+  const t1Full  = state.team1 || t1Label;
+  const t2Full  = state.team2 || t2Label;
+  document.getElementById('team-choice-btns').innerHTML = `
+    <button class="identity-btn" onclick='makeTeamChoice(${JSON.stringify(t1Full)})'>
+      <div class="identity-name">${t1Label}</div>
+    </button>
+    <button class="identity-btn" onclick='makeTeamChoice(${JSON.stringify(t2Full)})'>
+      <div class="identity-name">${t2Label}</div>
+    </button>`;
+  goToStep('step-team-choice');
+}
+
+async function makeTeamChoice(teamName) {
+  try {
+    const res = await fetch(API + '/api/draft/' + currentMatchId + '/choose_team', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user: currentUser, team: teamName})
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error); return; }
+    draftState = Object.assign({}, draftState, data);
+    showToast('Locked in: ' + teamName, 'success');
+    afterIdentify();
+  } catch(e) { showToast('Error choosing team.'); }
+}
+
 function renderLastMatchInfo(state) {
   const el = document.getElementById('last-match-info');
   if (!el || !state || !state.last_match_desc) return;
   const winner = state.last_match_winner === 'amitabh' ? 'Amitabh' : 'Shivam';
-  const loser  = state.last_match_winner === 'amitabh' ? 'Shivam'  : 'Amitabh';
   el.innerHTML = `<div class="last-match-box">
     <div class="last-match-label">${state.last_match_desc}</div>
     <div class="last-match-score">${winner} won · A ${state.last_match_amitabh} – S ${state.last_match_shivam}</div>
-    <div class="last-match-first">${loser} picks first 🏏</div>
+    <div class="last-match-first">${winner} chooses team 🏏 · Toss winner picks first</div>
   </div>`;
 }
 

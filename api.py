@@ -5,6 +5,7 @@ import json
 import sqlite3
 import time
 from datetime import datetime, timezone, timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 CORS(app)
@@ -35,6 +36,15 @@ def _ensure_db():
         picks TEXT DEFAULT '[]', amitabh_captain TEXT DEFAULT '',
         shivam_captain TEXT DEFAULT '', is_complete INTEGER DEFAULT 0,
         created_at INTEGER)''')
+    # Add team-choice columns (safe to run multiple times — ignored if already exist)
+    try:
+        conn.execute('ALTER TABLE drafts ADD COLUMN amitabh_team_choice TEXT DEFAULT ""')
+    except Exception:
+        pass
+    try:
+        conn.execute('ALTER TABLE drafts ADD COLUMN shivam_team_choice TEXT DEFAULT ""')
+    except Exception:
+        pass
     # One-time data entry: match 7 CSK vs PBKS selections
     conn.execute('''INSERT OR IGNORE INTO selections
         (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
@@ -134,6 +144,14 @@ def draft_turn(first, n):
     second = 'shivam' if first == 'amitabh' else 'amitabh'
     return None if n >= 10 else (first if n % 2 == 0 else second)
 
+def get_toss_winner_name(match_id):
+    """Return the team name that won the toss, or '' if not yet known."""
+    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
+    toss = (data.get('tossResults')
+            or data.get('matchHeader', {}).get('tossResults')
+            or {})
+    return toss.get('tossWinnerName', '')
+
 def build_draft_response(row, picks):
     first = row['first_pick']
     last  = get_last_match_info()
@@ -144,6 +162,8 @@ def build_draft_response(row, picks):
         'amitabh_captain': row['amitabh_captain'] or '',
         'shivam_captain':  row['shivam_captain']  or '',
         'is_complete': bool(row['is_complete']),
+        'amitabh_team_choice': row.get('amitabh_team_choice', '') or '',
+        'shivam_team_choice':  row.get('shivam_team_choice', '')  or '',
         **last,
     }
 
@@ -222,8 +242,6 @@ def get_fixtures():
     matches = []
     for item in data.get('matchDetails', []):
         md = item.get('matchDetailsMap', {})
-        if md.get('seriesId') != IPL_SERIES_ID:
-            continue
         for m in md.get('match', []):
             mi = m.get('matchInfo', {})
             ms = m.get('matchScore', {})
@@ -282,12 +300,116 @@ def get_players(match_id):
         'match_id': match_id
     })
 
+@app.route('/api/match/<match_id>/players')
+def get_match_players(match_id):
+    """Fetch players from scorecard + commentary + squads in parallel and merge."""
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        f_hscard = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/hscard')
+        f_comm   = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/comm')
+        f_squads = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/squads')
+        hscard_data = f_hscard.result()
+        comm_data   = f_comm.result()
+        squads_data = f_squads.result()
+
+    # ── 1. Squads: full squad as base (all 15–16 players per team) ──────────
+    t1_name, t1_short, t2_name, t2_short = '', '', '', ''
+    t1_players, t2_players = {}, {}   # name → role
+
+    squads = squads_data.get('squads', [])
+    def _extract_squad(entry):
+        name  = entry.get('teamName') or entry.get('team', {}).get('name', '')
+        short = entry.get('teamShortName') or entry.get('shortName') or entry.get('team', {}).get('shortName', '')
+        players = {}
+        for p in (entry.get('players') or entry.get('squad', {}).get('players') or []):
+            n = p.get('name', '')
+            r = p.get('role', '')
+            if n:
+                players[n] = r
+        return name, short, players
+
+    if len(squads) >= 1:
+        t1_name, t1_short, t1_players = _extract_squad(squads[0])
+    if len(squads) >= 2:
+        t2_name, t2_short, t2_players = _extract_squad(squads[1])
+
+    # ── 2. Commentary: parse Playing XI announcement (highest priority) ──────
+    # Typical format: "Team Name (Playing XI): P1, P2, P3, ..."
+    import re
+    comm_xi = {}  # team_name_fragment → set of player names
+    for item in (comm_data.get('commentaryList') or []):
+        text = item.get('commText', '')
+        m = re.search(r'(.+?)\s*\(Playing (?:XI|11)\)\s*:\s*(.+)', text, re.IGNORECASE)
+        if m:
+            team_frag = m.group(1).strip()
+            names = [n.strip() for n in re.split(r',\s*', m.group(2)) if n.strip()]
+            comm_xi[team_frag] = names
+
+    def _assign_comm_xi(comm_xi, t1_name, t1_short, t2_name, t2_short):
+        xi1, xi2 = [], []
+        for frag, names in comm_xi.items():
+            # Match fragment against known team names (case-insensitive partial match)
+            def matches(frag, name, short):
+                f = frag.lower(); n = name.lower(); s = short.lower()
+                return f in n or n in f or (s and f in s) or (s and s in f)
+            if matches(frag, t1_name, t1_short):
+                xi1 = names
+            elif matches(frag, t2_name, t2_short):
+                xi2 = names
+        return xi1, xi2
+
+    xi1, xi2 = _assign_comm_xi(comm_xi, t1_name, t1_short, t2_name, t2_short)
+
+    # ── 3. Scorecard: players who've already batted/bowled ───────────────────
+    scorecard = hscard_data.get('scorecard', [])
+    sc_t1, sc_t2 = set(), set()
+    if len(scorecard) >= 1:
+        for b in scorecard[0].get('batsman', []): sc_t1.add(b['name'])
+        for b in scorecard[0].get('bowler', []):  sc_t2.add(b['name'])
+    if len(scorecard) >= 2:
+        for b in scorecard[1].get('batsman', []): sc_t2.add(b['name'])
+        for b in scorecard[1].get('bowler', []):  sc_t1.add(b['name'])
+
+    # Fall back to scorecard team names if squads didn't yield them
+    if not t1_name and scorecard:
+        t1_name  = scorecard[0].get('batteamname', '')
+        t1_short = scorecard[0].get('batteamsname', '')
+    if not t2_name and len(scorecard) > 1:
+        t2_name  = scorecard[1].get('batteamname', '')
+        t2_short = scorecard[1].get('batteamsname', '')
+
+    # ── 4. Merge: comm XI > squads > scorecard ───────────────────────────────
+    def _build_final(xi, squad_dict, sc_set):
+        final = {}
+        if xi:
+            for n in xi:
+                final[n] = squad_dict.get(n, '')
+        elif squad_dict:
+            final = dict(squad_dict)
+        else:
+            final = {n: '' for n in sc_set}
+        # Always add scorecard players (impact subs / anyone who played)
+        for n in sc_set:
+            if n not in final:
+                final[n] = squad_dict.get(n, '')
+        return final
+
+    final_t1 = _build_final(xi1, t1_players, sc_t1)
+    final_t2 = _build_final(xi2, t2_players, sc_t2)
+
+    return jsonify({
+        'team1': t1_name, 'team1_short': t1_short,
+        'team1_players': [{'name': n, 'role': r} for n, r in sorted(final_t1.items())],
+        'team2': t2_name, 'team2_short': t2_short,
+        'team2_players': [{'name': n, 'role': r} for n, r in sorted(final_t2.items())],
+        'players': sorted(set(final_t1) | set(final_t2)),
+    })
+
 @app.route('/api/draft/<match_id>')
 def get_draft(match_id):
     conn = get_db()
     row = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
     if not row:
-        first = get_last_match_info()['last_match_loser']
+        first = get_last_match_info()['last_match_winner']  # overridden after toss via /choose_team
         conn.execute(
             'INSERT INTO drafts (match_id, first_pick, picks, amitabh_captain, shivam_captain, is_complete, created_at) VALUES (?,?,?,?,?,?,?)',
             (match_id, first, '[]', '', '', 0, int(time.time()))
@@ -304,7 +426,7 @@ def start_draft(match_id):
     conn = get_db()
     row = conn.execute('SELECT match_id FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
     if not row:
-        first = get_last_match_info()['last_match_loser']
+        first = get_last_match_info()['last_match_winner']  # overridden after toss via /choose_team
         conn.execute(
             'INSERT INTO drafts (match_id, first_pick, picks, amitabh_captain, shivam_captain, is_complete, created_at) VALUES (?,?,?,?,?,?,?)',
             (match_id, first, '[]', '', '', 0, int(time.time()))
@@ -312,6 +434,50 @@ def start_draft(match_id):
         conn.commit()
     conn.close()
     return jsonify({'success': True})
+
+@app.route('/api/draft/<match_id>/choose_team', methods=['POST'])
+def choose_team(match_id):
+    """
+    Step 1 of draft order: the winner of the last match chooses which team they want.
+    Step 2: once both users have chosen, we fetch the toss result and set first_pick
+    to whichever user's chosen team won the toss.
+    """
+    data = request.json
+    user, team = data.get('user'), data.get('team')
+    if user not in ('amitabh', 'shivam') or not team:
+        return jsonify({'error': 'Invalid input'}), 400
+    conn = get_db()
+    row = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    if not row:
+        conn.close(); return jsonify({'error': 'Draft not found'}), 400
+    col = 'amitabh_team_choice' if user == 'amitabh' else 'shivam_team_choice'
+    conn.execute(f'UPDATE drafts SET {col} = ? WHERE match_id = ?', (team, match_id))
+    conn.commit()
+    row2 = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    a_choice = row2['amitabh_team_choice'] or ''
+    s_choice = row2['shivam_team_choice']  or ''
+    # Once both users have chosen a team, resolve first_pick from the toss
+    if a_choice and s_choice:
+        toss_winner = get_toss_winner_name(match_id)
+        if toss_winner:
+            tw = toss_winner.lower()
+            def _matches(choice):
+                c = choice.lower()
+                return c in tw or tw in c
+            if _matches(a_choice):
+                first_pick = 'amitabh'
+            elif _matches(s_choice):
+                first_pick = 'shivam'
+            else:
+                first_pick = row2['first_pick']  # toss team unrecognised, keep default
+            conn.execute('UPDATE drafts SET first_pick = ? WHERE match_id = ?', (first_pick, match_id))
+            conn.commit()
+            row2 = conn.execute('SELECT * FROM drafts WHERE match_id = ?', (match_id,)).fetchone()
+    picks = json.loads(row2['picks'])
+    result = build_draft_response(dict(row2), picks)
+    conn.close()
+    player_data = get_players_cached(match_id)
+    return jsonify({**result, **player_data})
 
 @app.route('/api/draft/<match_id>/pick', methods=['POST'])
 def make_pick(match_id):
