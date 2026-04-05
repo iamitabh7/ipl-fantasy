@@ -28,6 +28,17 @@ def get_db():
 # Called at module level so gunicorn (which skips __main__) still creates tables
 def _ensure_db():
     conn = get_db()
+    conn.execute('''CREATE TABLE IF NOT EXISTS fixtures (
+        match_id TEXT PRIMARY KEY,
+        desc TEXT,
+        team1 TEXT, team1_short TEXT,
+        team2 TEXT, team2_short TEXT,
+        start_date INTEGER, start_ist TEXT,
+        venue TEXT, city TEXT,
+        status TEXT, state TEXT,
+        team1_runs TEXT DEFAULT '-', team1_wkts TEXT DEFAULT '-', team1_overs TEXT DEFAULT '-',
+        team2_runs TEXT DEFAULT '-', team2_wkts TEXT DEFAULT '-', team2_overs TEXT DEFAULT '-'
+    )''')
     conn.execute('''CREATE TABLE IF NOT EXISTS selections (
         match_id TEXT PRIMARY KEY, amitabh_players TEXT, amitabh_captain TEXT,
         shivam_players TEXT, shivam_captain TEXT, created_at INTEGER)''')
@@ -279,6 +290,13 @@ def get_fixtures():
     elif _fixtures_cache['data']:
         # API failed (rate limit / outage) — return last good response
         return jsonify(_fixtures_cache['data'])
+    else:
+        # Fall back to seeded DB fixtures (Cricbuzz unavailable / wrong series ID)
+        conn = get_db()
+        rows = conn.execute('SELECT * FROM fixtures ORDER BY start_date').fetchall()
+        conn.close()
+        if rows:
+            return jsonify([dict(r) for r in rows])
 
     return jsonify(matches)
 
