@@ -2,10 +2,15 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import urllib.request
 import json
+import os
 import sqlite3
 import time
+import re
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor
+
+# Disk cache directory — persists across restarts and survives in-memory eviction
+os.makedirs('cache', exist_ok=True)
 
 app = Flask(__name__)
 CORS(app)
@@ -126,7 +131,39 @@ def get_last_match_info():
 _player_cache = {}
 _fixtures_cache = {'data': None, 'ts': 0}
 _season_cache   = {'data': None, 'ts': 0}
-CACHE_TTL = 300  # seconds — refresh at most every 5 minutes
+_match_players_cache = {}   # match_id → {'data': ..., 'ts': ...}
+CACHE_TTL = 3600  # seconds — refresh at most every hour
+
+# ── Disk cache helpers ────────────────────────────────────────────────────────
+def _cache_path(api_path):
+    safe = api_path.lstrip('/').replace('/', '_')
+    return os.path.join('cache', f'{safe}.json')
+
+def _disk_read(api_path, ttl=CACHE_TTL):
+    """Return cached data if it exists and is fresher than ttl seconds, else None."""
+    p = _cache_path(api_path)
+    try:
+        if time.time() - os.path.getmtime(p) < ttl:
+            with open(p) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return None
+
+def _disk_write(api_path, data):
+    try:
+        with open(_cache_path(api_path), 'w') as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
+def _disk_read_stale(api_path):
+    """Return cached data regardless of age (stale fallback when API is down)."""
+    try:
+        with open(_cache_path(api_path)) as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 def get_players_cached(match_id):
     if match_id in _player_cache:
@@ -190,6 +227,11 @@ def build_draft_response(row, picks):
     }
 
 def cricbuzz_get(path):
+    # 1. Fresh disk cache?
+    cached = _disk_read(path)
+    if cached is not None:
+        return cached
+
     url = f'https://{API_HOST}{path}'
     req = urllib.request.Request(url, headers={
         'x-rapidapi-host': API_HOST,
@@ -197,10 +239,18 @@ def cricbuzz_get(path):
     })
     try:
         response = urllib.request.urlopen(req, timeout=10)
-        return json.loads(response.read())
+        data = json.loads(response.read())
+        _disk_write(path, data)
+        return data
+    except urllib.error.HTTPError as e:
+        print(f'API HTTP error {e.code}: {path}')
+        # 429 = quota exceeded, 404 = endpoint not available — serve stale if we have it
+        if e.code in (429, 404):
+            return _disk_read_stale(path)
+        return {}
     except Exception as e:
         print(f'API error: {e}')
-        return {}
+        return _disk_read_stale(path)
 
 def calculate_points(player_name, is_captain, innings_list):
     runs = wickets = catches = runouts = stumpings = 0
@@ -333,6 +383,11 @@ def get_players(match_id):
 @app.route('/api/match/<match_id>/players')
 def get_match_players(match_id):
     """Fetch players from scorecard + commentary + squads in parallel and merge."""
+    now = time.time()
+    cached = _match_players_cache.get(match_id)
+    if cached and now - cached['ts'] < CACHE_TTL:
+        return jsonify(cached['data'])
+
     with ThreadPoolExecutor(max_workers=3) as ex:
         f_hscard = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/hscard')
         f_comm   = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/comm')
@@ -371,7 +426,6 @@ def get_match_players(match_id):
 
     # ── 2. Commentary: parse Playing XI announcement (highest priority) ──────
     # Typical format: "Team Name (Playing XI): P1, P2, P3, ..."
-    import re
     comm_xi = {}  # team_name_fragment → set of player names
     for item in (comm_data.get('commentaryList') or []):
         text = item.get('commText', '')
@@ -433,13 +487,16 @@ def get_match_players(match_id):
     final_t1 = _build_final(xi1, t1_players, sc_t1)
     final_t2 = _build_final(xi2, t2_players, sc_t2)
 
-    return jsonify({
+    result = {
         'team1': t1_name, 'team1_short': t1_short,
         'team1_players': [{'name': n, 'role': r} for n, r in sorted(final_t1.items())],
         'team2': t2_name, 'team2_short': t2_short,
         'team2_players': [{'name': n, 'role': r} for n, r in sorted(final_t2.items())],
         'players': sorted(set(final_t1) | set(final_t2)),
-    })
+    }
+    if result['players']:
+        _match_players_cache[match_id] = {'data': result, 'ts': time.time()}
+    return jsonify(result)
 
 @app.route('/api/draft/<match_id>')
 def get_draft(match_id):
@@ -618,9 +675,6 @@ def save_selection():
           json.dumps(shivam), shivam_cap, int(time.time())))
     conn.commit()
     conn.close()
-    # Invalidate season cache so home page reflects new picks immediately
-    _season_cache['data'] = None
-    _season_cache['ts'] = 0
     return jsonify({'success': True})
 
 @app.route('/api/score/<match_id>')
