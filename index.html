@@ -418,7 +418,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
       <div id="score-result-body" style="margin:12px 0"></div>
       <div class="selector-footer">
         <button class="calc-btn" id="btn-calc-scores" onclick="calculateScores()">⚡ Calculate Scores from Cricbuzz</button>
-        <button class="btn-secondary" onclick="goToStep('step-admin')">← Edit Picks</button>
+        <button class="btn-secondary" id="btn-score-edit-picks" onclick="goToStep('step-admin')">← Edit Picks</button>
         <button class="btn-secondary" onclick="closeSelector()">Close</button>
       </div>
     </div>
@@ -603,7 +603,9 @@ async function loadFixtures() {
         </div>` : '';
       const label = `'${m.team1_short} vs ${m.team2_short}'`;
       let actionBtn;
-      if (isComplete) {
+      if (m.locked) {
+        actionBtn = `<button class="select-btn view-btn" onclick="viewLockedMatch('${m.match_id}', ${label})">View Result →</button>`;
+      } else if (isComplete) {
         actionBtn = savedIds.has(m.match_id)
           ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Edit Picks &amp; Scores →</button>`
           : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Enter Picks →</button>`;
@@ -1081,7 +1083,73 @@ async function saveAdminPicks() {
   }
 }
 
+async function viewLockedMatch(matchId, matchName) {
+  currentMatchId = matchId;
+  document.getElementById('selector-overlay').classList.add('open');
+  goToStep('step-scores');
+  // Hide calc and edit buttons — locked matches are read-only
+  document.getElementById('btn-calc-scores').style.display = 'none';
+  document.getElementById('btn-score-edit-picks').style.display = 'none';
+  document.getElementById('score-status-text').textContent = matchName + ' · locked';
+  document.getElementById('score-result-body').innerHTML =
+    '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">Loading…</p>';
+  try {
+    const res = await fetch(API + '/api/season');
+    const data = await res.json();
+    const match = (data.matches || []).find(m => m.match_id === matchId);
+    if (!match) {
+      document.getElementById('score-result-body').innerHTML =
+        '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">No data for this match.</p>';
+      return;
+    }
+    const aWin = match.amitabh_total >= match.shivam_total;
+    document.getElementById('score-status-text').textContent = match.desc || matchName;
+    document.getElementById('score-result-body').innerHTML = `
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <div class="score-block" style="flex:1;text-align:center">
+          <div class="score-user-label" style="color:var(--amber)">Amitabh${aWin ? ' 🏆' : ''}</div>
+          <div class="score-big ${aWin ? 'winner' : ''}">${match.amitabh_total}</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--hint);font-family:Rajdhani,sans-serif;font-weight:700;font-size:13px">VS</div>
+        <div class="score-block" style="flex:1;text-align:center">
+          <div class="score-user-label" style="color:var(--blue)">Shivam${!aWin ? ' 🏆' : ''}</div>
+          <div class="score-big ${!aWin ? 'winner' : ''}">${match.shivam_total}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          ${(match.amitabh_players || []).map(p => `
+            <div class="p-row">
+              <div class="p-info">
+                <div class="p-name">${p.name}${p.is_captain ? ' <span class="cap">C</span>' : ''}</div>
+                <div class="p-stat">${p.runs}r · ${p.wickets}w · ${p.catches}c</div>
+              </div>
+              <div class="p-pts">${p.points}</div>
+            </div>`).join('')}
+          <div class="team-total"><span class="tt-label">Total</span><span class="tt-val">${match.amitabh_total}</span></div>
+        </div>
+        <div>
+          ${(match.shivam_players || []).map(p => `
+            <div class="p-row">
+              <div class="p-info">
+                <div class="p-name">${p.name}${p.is_captain ? ' <span class="cap">C</span>' : ''}</div>
+                <div class="p-stat">${p.runs}r · ${p.wickets}w · ${p.catches}c</div>
+              </div>
+              <div class="p-pts">${p.points}</div>
+            </div>`).join('')}
+          <div class="team-total"><span class="tt-label">Total</span><span class="tt-val">${match.shivam_total}</span></div>
+        </div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('score-result-body').innerHTML =
+      '<p style="color:var(--red);text-align:center;padding:20px;font-size:13px">Error loading match data.</p>';
+  }
+}
+
 function goToScoresStep() {
+  // Restore buttons (may have been hidden by viewLockedMatch)
+  document.getElementById('btn-calc-scores').style.display = '';
+  document.getElementById('btn-score-edit-picks').style.display = '';
   document.getElementById('score-status-text').textContent = 'Click Calculate to fetch scores from Cricbuzz scorecard';
   document.getElementById('score-result-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">

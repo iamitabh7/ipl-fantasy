@@ -150,6 +150,8 @@ FIXTURES = [
      '', 'Upcoming'),
 ]
 
+LOCKED_IDS = {'149618', '149629', '149640', '149651', '149662', '149673'}
+
 conn = sqlite3.connect(DB)
 conn.execute('''CREATE TABLE IF NOT EXISTS fixtures (
     match_id    TEXT PRIMARY KEY,
@@ -159,24 +161,31 @@ conn.execute('''CREATE TABLE IF NOT EXISTS fixtures (
     start_date  INTEGER, start_ist TEXT,
     venue       TEXT,  city TEXT,
     status      TEXT,  state TEXT,
+    locked      INTEGER DEFAULT 0,
     team1_runs  TEXT DEFAULT '-', team1_wkts TEXT DEFAULT '-', team1_overs TEXT DEFAULT '-',
     team2_runs  TEXT DEFAULT '-', team2_wkts TEXT DEFAULT '-', team2_overs TEXT DEFAULT '-'
 )''')
+# Add locked column to existing DBs that predate this migration
+try:
+    conn.execute('ALTER TABLE fixtures ADD COLUMN locked INTEGER DEFAULT 0')
+except Exception:
+    pass
 
 inserted = updated = 0
 for row in FIXTURES:
     mid, desc, t1, t1s, t2, t2s, y, mo, d, h, mi, venue, city, status, state = row
     start_ms  = epoch_ms(y, mo, d, h, mi)
     start_str = ist_label(y, mo, d, h, mi)
+    locked    = 1 if mid in LOCKED_IDS else 0
     existing  = conn.execute('SELECT 1 FROM fixtures WHERE match_id=?', (mid,)).fetchone()
     conn.execute(
         '''INSERT OR REPLACE INTO fixtures
            (match_id, desc, team1, team1_short, team2, team2_short,
-            start_date, start_ist, venue, city, status, state,
+            start_date, start_ist, venue, city, status, state, locked,
             team1_runs, team1_wkts, team1_overs,
             team2_runs, team2_wkts, team2_overs)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'-','-','-','-','-','-')''',
-        (mid, desc, t1, t1s, t2, t2s, start_ms, start_str, venue, city, status, state),
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'-','-','-','-','-','-')''',
+        (mid, desc, t1, t1s, t2, t2s, start_ms, start_str, venue, city, status, state, locked),
     )
     if existing:
         updated += 1

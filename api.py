@@ -20,6 +20,9 @@ KNOWN_MATCH_LABELS = {
     '149684': 'Match 7 — CSK vs PBKS',
 }
 
+# Matches 1-6: hardcoded in /api/season — picks and scores cannot be changed
+LOCKED_MATCH_IDS = {'149618', '149629', '149640', '149651', '149662', '149673'}
+
 def get_db():
     conn = sqlite3.connect('fantasy.db')
     conn.row_factory = sqlite3.Row
@@ -56,6 +59,14 @@ def _ensure_db():
         conn.execute('ALTER TABLE drafts ADD COLUMN shivam_team_choice TEXT DEFAULT ""')
     except Exception:
         pass
+    # Add locked column to fixtures (safe if already exists)
+    try:
+        conn.execute('ALTER TABLE fixtures ADD COLUMN locked INTEGER DEFAULT 0')
+    except Exception:
+        pass
+    # Lock matches 1-6 — their data is hardcoded and must not be edited
+    conn.execute("""UPDATE fixtures SET locked=1 WHERE match_id IN
+        ('149618','149629','149640','149651','149662','149673')""")
     # One-time data entry: match 7 CSK vs PBKS selections
     conn.execute('''INSERT OR IGNORE INTO selections
         (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
@@ -281,6 +292,7 @@ def get_fixtures():
                 'start_ist': dt_ist.strftime('%-d %b · %-I:%M %p IST'),
                 'venue': mi.get('venueInfo', {}).get('ground', ''),
                 'city': mi.get('venueInfo', {}).get('city', ''),
+                'locked': 1 if str(mi.get('matchId', '')) in LOCKED_MATCH_IDS else 0,
             })
     matches.sort(key=lambda x: int(x['start_date']) if x['start_date'] else 0)
 
@@ -335,12 +347,19 @@ def get_match_players(match_id):
 
     squads = squads_data.get('squads', [])
     def _extract_squad(entry):
-        name  = entry.get('teamName') or entry.get('team', {}).get('name', '')
-        short = entry.get('teamShortName') or entry.get('shortName') or entry.get('team', {}).get('shortName', '')
+        name  = (entry.get('teamName') or entry.get('team', {}).get('name', '') or '').strip()
+        short = (entry.get('teamShortName') or entry.get('shortName') or
+                 entry.get('team', {}).get('shortName', '') or '').strip()
+        # squad field may be: a list of players directly, or a dict with 'players' key
+        raw = entry.get('players') or entry.get('squad') or []
+        if isinstance(raw, dict):
+            raw = raw.get('players') or raw.get('squad') or []
         players = {}
-        for p in (entry.get('players') or entry.get('squad', {}).get('players') or []):
-            n = p.get('name', '')
-            r = p.get('role', '')
+        for p in (raw or []):
+            if not isinstance(p, dict):
+                continue
+            n = (p.get('name') or p.get('playerName') or '').strip()
+            r = (p.get('role') or p.get('playerRole') or '')
             if n:
                 players[n] = r
         return name, short, players
@@ -582,6 +601,8 @@ def get_selection(match_id):
 def save_selection():
     data = request.json
     match_id = data.get('match_id')
+    if match_id in LOCKED_MATCH_IDS:
+        return jsonify({'error': 'This match is locked — picks cannot be changed'}), 403
     amitabh = data.get('amitabh_players', [])
     amitabh_cap = data.get('amitabh_captain', '')
     shivam = data.get('shivam_players', [])
@@ -605,6 +626,8 @@ def save_selection():
 @app.route('/api/score/<match_id>')
 def score_match(match_id):
     """Calculate fantasy points for a saved selection using the Cricbuzz scorecard."""
+    if match_id in LOCKED_MATCH_IDS:
+        return jsonify({'error': 'This match is locked — use /api/season for historical scores'}), 403
     data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
     scorecard = data.get('scorecard', [])
     status = data.get('status', '')
