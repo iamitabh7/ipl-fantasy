@@ -597,7 +597,41 @@ def save_selection():
           json.dumps(shivam), shivam_cap, int(time.time())))
     conn.commit()
     conn.close()
+    # Invalidate season cache so home page reflects new picks immediately
+    _season_cache['data'] = None
+    _season_cache['ts'] = 0
     return jsonify({'success': True})
+
+@app.route('/api/score/<match_id>')
+def score_match(match_id):
+    """Calculate fantasy points for a saved selection using the Cricbuzz scorecard."""
+    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
+    scorecard = data.get('scorecard', [])
+    status = data.get('status', '')
+    conn = get_db()
+    row = conn.execute('SELECT * FROM selections WHERE match_id = ?', (match_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'error': 'No picks saved for this match yet'}), 404
+    if not scorecard:
+        return jsonify({'error': 'Cricbuzz scorecard not available yet — try again after the match'}), 404
+    amitabh = json.loads(row['amitabh_players'])
+    amitabh_cap = row['amitabh_captain']
+    shivam = json.loads(row['shivam_players'])
+    shivam_cap = row['shivam_captain']
+    a_players, a_total = score_team(amitabh, amitabh_cap, scorecard)
+    s_players, s_total = score_team(shivam, shivam_cap, scorecard)
+    # Invalidate season cache so standings update
+    _season_cache['data'] = None
+    _season_cache['ts'] = 0
+    return jsonify({
+        'match_id': match_id,
+        'status': status,
+        'amitabh': {'total': a_total, 'players': a_players, 'captain': amitabh_cap},
+        'shivam': {'total': s_total, 'players': s_players, 'captain': shivam_cap},
+        'leader': 'amitabh' if a_total > s_total else 'shivam',
+        'gap': abs(a_total - s_total),
+    })
 
 @app.route('/api/live/<match_id>')
 def get_live_score(match_id):

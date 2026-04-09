@@ -202,6 +202,21 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 .draft-pick-item:last-child{border-bottom:none}
 .draft-pick-empty{font-size:12px;color:var(--hint);padding:4px 0;border-bottom:1px solid var(--border)}
 .draft-pick-empty:last-child{border-bottom:none}
+
+/* ADMIN PICKS */
+.admin-tab{flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
+.admin-tab.active{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber)}
+.admin-picks-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-height:90px}
+.admin-picks-head{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.admin-pick-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:3px 0;cursor:pointer;border-bottom:1px solid var(--border)}
+.admin-pick-row:last-of-type{border-bottom:none}
+.admin-pick-row:hover{color:var(--amber)}
+.calc-btn{width:100%;padding:14px;background:linear-gradient(135deg,#00c070,#009950);border-radius:12px;border:none;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:8px;transition:opacity 0.2s}
+.calc-btn:disabled{opacity:0.4;cursor:not-allowed}
+.score-block{background:var(--surface2);border-radius:10px;padding:12px}
+.score-user-label{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
+.score-big{font-family:'Rajdhani',sans-serif;font-size:36px;font-weight:700;color:var(--text);line-height:1;margin-top:4px}
+.score-big.winner{color:var(--green)}
 </style>
 </head>
 <body>
@@ -376,13 +391,45 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
       </div>
     </div>
 
+    <!-- Step: Admin Picks Entry (for completed/any match — enter both users' picks) -->
+    <div class="selector-step" id="step-admin">
+      <div class="selector-title" id="admin-match-name">Enter Picks</div>
+      <div class="selector-sub" style="margin-bottom:14px">Tap player to add · Tap added player to set captain (C) · Tap captain to remove</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="admin-tab-a" class="admin-tab active" onclick="setAdminMode('amitabh')">Amitabh</button>
+        <button id="admin-tab-s" class="admin-tab" onclick="setAdminMode('shivam')">Shivam</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div id="admin-picks-a" class="admin-picks-box"></div>
+        <div id="admin-picks-s" class="admin-picks-box"></div>
+      </div>
+      <div class="player-list" id="admin-player-list"></div>
+      <div class="selector-footer">
+        <button class="btn-primary" id="btn-save-picks" onclick="saveAdminPicks()" disabled>Save Picks</button>
+        <button id="btn-goto-scores" class="btn-secondary" onclick="goToScoresStep()" style="display:none">View Scores →</button>
+        <button class="btn-secondary" onclick="closeSelector()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Step: Score Results -->
+    <div class="selector-step" id="step-scores">
+      <div class="selector-title">Score Results</div>
+      <div class="selector-sub" id="score-status-text">Click Calculate to fetch scores from Cricbuzz</div>
+      <div id="score-result-body" style="margin:12px 0"></div>
+      <div class="selector-footer">
+        <button class="calc-btn" id="btn-calc-scores" onclick="calculateScores()">⚡ Calculate Scores from Cricbuzz</button>
+        <button class="btn-secondary" onclick="goToStep('step-admin')">← Edit Picks</button>
+        <button class="btn-secondary" onclick="closeSelector()">Close</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://ipl-fantasy-api-5dao.onrender.com';
+const API = '';
 let currentMatchId = null;
 let currentUser = null;
 let draftState = null;
@@ -555,9 +602,16 @@ async function loadFixtures() {
           </div>
         </div>` : '';
       const label = `'${m.team1_short} vs ${m.team2_short}'`;
-      const actionBtn = savedIds.has(m.match_id)
-        ? `<button class="select-btn view-btn" onclick="viewScorecard('${m.match_id}', ${label})">View Scorecard →</button>`
-        : `<button class="select-btn" onclick="openSelector('${m.match_id}', ${label})">Select Players →</button>`;
+      let actionBtn;
+      if (isComplete) {
+        actionBtn = savedIds.has(m.match_id)
+          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Edit Picks &amp; Scores →</button>`
+          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Enter Picks →</button>`;
+      } else {
+        actionBtn = savedIds.has(m.match_id)
+          ? `<button class="select-btn view-btn" onclick="viewScorecard('${m.match_id}', ${label})">View Draft →</button>`
+          : `<button class="select-btn" onclick="openSelector('${m.match_id}', ${label})">Draft Players →</button>`;
+      }
       list.innerHTML += `
       <div class="fixture-card ${isComplete ? '' : 'upcoming'}">
         <div class="fixture-top">
@@ -857,6 +911,259 @@ function stopDraftPolling() {
 function closeSelector() {
   document.getElementById('selector-overlay').classList.remove('open');
   stopDraftPolling();
+}
+
+// ── ADMIN PICKS ───────────────────────────────────────
+let adminPicks = {amitabh: [], shivam: []};
+let adminCaptains = {amitabh: '', shivam: ''};
+let adminMode = 'amitabh';
+let adminPlayers = {team1: [], team2: [], team1_short: '', team2_short: '', players: []};
+
+async function openAdminPicks(matchId, matchName) {
+  currentMatchId = matchId;
+  adminPicks = {amitabh: [], shivam: []};
+  adminCaptains = {amitabh: '', shivam: ''};
+  adminMode = 'amitabh';
+  document.getElementById('admin-match-name').textContent = matchName;
+  document.getElementById('btn-goto-scores').style.display = 'none';
+  document.getElementById('selector-overlay').classList.add('open');
+  goToStep('step-admin');
+  renderAdminPicks();
+  document.getElementById('admin-player-list').innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">Loading players…</p>';
+
+  try {
+    const [selRes, playersRes] = await Promise.all([
+      fetch(API + '/api/selections/' + matchId),
+      fetch(API + '/api/match/' + matchId + '/players'),
+    ]);
+    const sel = await selRes.json();
+    const pd = await playersRes.json();
+
+    if (sel.exists) {
+      adminPicks.amitabh = [...(sel.amitabh_players || [])];
+      adminCaptains.amitabh = sel.amitabh_captain || '';
+      adminPicks.shivam = [...(sel.shivam_players || [])];
+      adminCaptains.shivam = sel.shivam_captain || '';
+      document.getElementById('btn-goto-scores').style.display = '';
+    }
+
+    adminPlayers = {
+      team1: (pd.team1_players || []).map(p => (typeof p === 'string') ? p : p.name).filter(Boolean),
+      team2: (pd.team2_players || []).map(p => (typeof p === 'string') ? p : p.name).filter(Boolean),
+      team1_short: pd.team1_short || 'Team 1',
+      team2_short: pd.team2_short || 'Team 2',
+      players: (pd.players || []).filter(Boolean),
+    };
+
+    renderAdminPicks();
+    renderAdminPlayerList();
+  } catch(e) {
+    showToast('Error loading players.');
+    document.getElementById('admin-player-list').innerHTML = '<p style="color:var(--red);text-align:center;padding:20px;font-size:13px">Failed to load players. Is the API running?</p>';
+  }
+}
+
+function setAdminMode(user) {
+  adminMode = user;
+  document.getElementById('admin-tab-a').classList.toggle('active', user === 'amitabh');
+  document.getElementById('admin-tab-s').classList.toggle('active', user === 'shivam');
+  renderAdminPlayerList();
+}
+
+function adminClickPlayer(name) {
+  const picks = adminPicks[adminMode];
+  const idx = picks.indexOf(name);
+  if (idx === -1) {
+    if (picks.length >= 5) { showToast('Already 5 picks for ' + (adminMode === 'amitabh' ? 'Amitabh' : 'Shivam')); return; }
+    picks.push(name);
+    if (!adminCaptains[adminMode]) adminCaptains[adminMode] = name;
+  } else if (adminCaptains[adminMode] !== name) {
+    // Already picked but not captain → make captain
+    adminCaptains[adminMode] = name;
+  } else {
+    // Already captain → remove
+    picks.splice(idx, 1);
+    adminCaptains[adminMode] = picks[0] || '';
+  }
+  renderAdminPicks();
+  renderAdminPlayerList();
+}
+
+function renderAdminPicks() {
+  ['amitabh', 'shivam'].forEach(user => {
+    const el = document.getElementById('admin-picks-' + (user === 'amitabh' ? 'a' : 's'));
+    const picks = adminPicks[user];
+    const cap = adminCaptains[user];
+    const colorClass = user === 'amitabh' ? 'amitabh-head' : 'shivam-head';
+    const label = user === 'amitabh' ? 'Amitabh' : 'Shivam';
+    const rows = picks.map(p => `
+      <div class="admin-pick-row" onclick='adminClickPlayer(${JSON.stringify(p)})'>
+        <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
+        ${p === cap ? '<span class="cap">C</span>' : '<span style="font-size:9px;color:var(--hint)">tap→C</span>'}
+      </div>`).join('');
+    el.innerHTML = `<div class="admin-picks-head ${colorClass}">${label} (${picks.length}/5)</div>` +
+      (rows || '<div style="font-size:11px;color:var(--hint);padding:4px 0">None selected</div>');
+  });
+
+  const canSave = adminPicks.amitabh.length === 5 && adminPicks.shivam.length === 5 &&
+                  adminCaptains.amitabh && adminCaptains.shivam;
+  document.getElementById('btn-save-picks').disabled = !canSave;
+}
+
+function renderAdminPlayerList() {
+  const myPicks = adminPicks[adminMode];
+  const el = document.getElementById('admin-player-list');
+  let html = '';
+
+  function renderGroup(players, groupName) {
+    if (!players.length) return;
+    html += `<div class="team-group-head">${groupName}</div>`;
+    players.forEach(p => {
+      const inList = myPicks.includes(p);
+      const isCap = adminCaptains[adminMode] === p;
+      let cls = 'player-item';
+      if (inList) cls += isCap ? ' captain' : ' selected';
+      const badge = inList
+        ? (isCap ? '<span class="player-item-badge badge-cap">CAP</span>' : '<span class="player-item-badge badge-sel">IN</span>')
+        : '';
+      const hint = inList ? (isCap ? 'tap to remove' : 'tap to set captain') : '';
+      const num = inList ? (myPicks.indexOf(p) + 1) : '';
+      html += `<div class="${cls}" onclick='adminClickPlayer(${JSON.stringify(p)})'>
+        <div class="player-num">${num}</div>
+        <div style="flex:1">
+          <div class="player-item-name">${p}</div>
+          ${hint ? `<div style="font-size:10px;color:var(--hint)">${hint}</div>` : ''}
+        </div>
+        ${badge}
+      </div>`;
+    });
+  }
+
+  if (adminPlayers.team1.length || adminPlayers.team2.length) {
+    renderGroup(adminPlayers.team1, adminPlayers.team1_short || 'Team 1');
+    renderGroup(adminPlayers.team2, adminPlayers.team2_short || 'Team 2');
+  } else if (adminPlayers.players.length) {
+    renderGroup(adminPlayers.players, 'All Players');
+  } else {
+    html = '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">No player data yet.<br><span style="font-size:11px;color:var(--hint)">Cricbuzz data not available for this match.</span></p>';
+  }
+
+  el.innerHTML = html || '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">No players available.</p>';
+}
+
+async function saveAdminPicks() {
+  const btn = document.getElementById('btn-save-picks');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const res = await fetch(API + '/api/select', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        match_id: currentMatchId,
+        amitabh_players: adminPicks.amitabh,
+        amitabh_captain: adminCaptains.amitabh,
+        shivam_players: adminPicks.shivam,
+        shivam_captain: adminCaptains.shivam,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error); btn.disabled = false; btn.textContent = 'Save Picks'; return; }
+    showToast('Picks saved!', 'success');
+    document.getElementById('btn-goto-scores').style.display = '';
+    btn.textContent = 'Save Picks';
+    btn.disabled = false;
+    goToScoresStep();
+  } catch(e) {
+    showToast('Error saving picks.');
+    btn.disabled = false;
+    btn.textContent = 'Save Picks';
+  }
+}
+
+function goToScoresStep() {
+  document.getElementById('score-status-text').textContent = 'Click Calculate to fetch scores from Cricbuzz scorecard';
+  document.getElementById('score-result-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="admin-picks-box">
+        <div class="admin-picks-head amitabh-head">Amitabh</div>
+        ${adminPicks.amitabh.map(p => `
+          <div class="admin-pick-row">
+            <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
+            ${p === adminCaptains.amitabh ? '<span class="cap">C</span>' : ''}
+          </div>`).join('')}
+      </div>
+      <div class="admin-picks-box">
+        <div class="admin-picks-head shivam-head">Shivam</div>
+        ${adminPicks.shivam.map(p => `
+          <div class="admin-pick-row">
+            <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
+            ${p === adminCaptains.shivam ? '<span class="cap">C</span>' : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  goToStep('step-scores');
+}
+
+async function calculateScores() {
+  const btn = document.getElementById('btn-calc-scores');
+  btn.disabled = true;
+  btn.textContent = '⏳ Fetching from Cricbuzz…';
+  try {
+    const res = await fetch(API + '/api/score/' + currentMatchId);
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = '⚡ Recalculate';
+    if (data.error) {
+      document.getElementById('score-status-text').textContent = '⚠ ' + data.error;
+      showToast(data.error);
+      return;
+    }
+    document.getElementById('score-status-text').textContent = data.status || 'Scored from Cricbuzz';
+    const aWin = data.amitabh.total >= data.shivam.total;
+
+    document.getElementById('score-result-body').innerHTML = `
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <div class="score-block" style="flex:1;text-align:center">
+          <div class="score-user-label" style="color:var(--amber)">Amitabh${aWin ? ' 🏆' : ''}</div>
+          <div class="score-big ${aWin ? 'winner' : ''}">${data.amitabh.total}</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--hint);font-family:Rajdhani,sans-serif;font-weight:700;font-size:13px">VS</div>
+        <div class="score-block" style="flex:1;text-align:center">
+          <div class="score-user-label" style="color:var(--blue)">Shivam${!aWin ? ' 🏆' : ''}</div>
+          <div class="score-big ${!aWin ? 'winner' : ''}">${data.shivam.total}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          ${data.amitabh.players.map(p => `
+            <div class="p-row">
+              <div class="p-info">
+                <div class="p-name">${p.name}${p.is_captain ? ' <span class="cap">C</span>' : ''}</div>
+                <div class="p-stat">${p.runs}r · ${p.wickets}w · ${p.catches}c</div>
+              </div>
+              <div class="p-pts">${p.points}</div>
+            </div>`).join('')}
+          <div class="team-total"><span class="tt-label">Total</span><span class="tt-val">${data.amitabh.total}</span></div>
+        </div>
+        <div>
+          ${data.shivam.players.map(p => `
+            <div class="p-row">
+              <div class="p-info">
+                <div class="p-name">${p.name}${p.is_captain ? ' <span class="cap">C</span>' : ''}</div>
+                <div class="p-stat">${p.runs}r · ${p.wickets}w · ${p.catches}c</div>
+              </div>
+              <div class="p-pts">${p.points}</div>
+            </div>`).join('')}
+          <div class="team-total"><span class="tt-label">Total</span><span class="tt-val">${data.shivam.total}</span></div>
+        </div>
+      </div>`;
+    showToast((aWin ? 'Amitabh' : 'Shivam') + ' wins this match!', 'success');
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '⚡ Calculate Scores from Cricbuzz';
+    showToast('Error calculating scores. Is the API running?');
+  }
 }
 
 // ── LIVE UPDATES ──────────────────────────────────────
