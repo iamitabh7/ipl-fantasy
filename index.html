@@ -180,37 +180,22 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 }
 .team-group-head{font-size:11px;font-weight:600;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;padding:10px 4px 4px;margin-top:4px}
 
-/* DRAFT */
-.identity-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
-.identity-btn{padding:24px 16px;background:var(--surface2);border:2px solid var(--border2);border-radius:14px;color:var(--text);cursor:pointer;transition:all 0.2s;text-align:center;font-family:'DM Sans',sans-serif;width:100%}
-.identity-btn:hover{border-color:var(--amber);background:var(--amber-dim)}
-.identity-name{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700}
-.identity-emoji{font-size:22px;margin-top:6px}
-.last-match-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px;text-align:center}
-.last-match-label{font-size:11px;color:var(--muted);margin-bottom:4px}
-.last-match-score{font-size:13px;color:var(--text);font-weight:500}
-.last-match-first{font-size:11px;color:var(--amber);margin-top:4px}
-.draft-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:10px;margin-bottom:12px}
-.draft-turn-label{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--amber)}
-.draft-count{font-size:12px;color:var(--muted);font-weight:600}
-.draft-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-.draft-col{background:var(--surface2);border-radius:10px;padding:10px 12px}
-.draft-col-head{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px}
+/* PICK FORM */
 .amitabh-head{color:var(--amber)}
 .shivam-head{color:var(--blue)}
-.draft-pick-item{font-size:12px;color:var(--text);padding:4px 0;border-bottom:1px solid var(--border)}
-.draft-pick-item:last-child{border-bottom:none}
-.draft-pick-empty{font-size:12px;color:var(--hint);padding:4px 0;border-bottom:1px solid var(--border)}
-.draft-pick-empty:last-child{border-bottom:none}
+.pick-col-label{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;display:block}
+.pick-input{width:100%;padding:9px 11px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:6px;outline:none;transition:border-color 0.2s;box-sizing:border-box}
+.pick-input:focus{border-color:var(--amber)}
+.pick-input::placeholder{color:var(--hint)}
+.pick-cap-label{font-size:11px;color:var(--muted);display:block;margin-top:4px;margin-bottom:3px}
+.pick-select{width:100%;padding:9px 11px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;cursor:pointer;box-sizing:border-box}
+.pick-select:focus{border-color:var(--amber)}
 
-/* ADMIN PICKS */
-.admin-tab{flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
-.admin-tab.active{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber)}
-.admin-picks-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-height:90px}
+/* ADMIN PICKS (score display) */
+.admin-picks-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-height:60px}
 .admin-picks-head{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
-.admin-pick-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:3px 0;cursor:pointer;border-bottom:1px solid var(--border)}
+.admin-pick-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)}
 .admin-pick-row:last-of-type{border-bottom:none}
-.admin-pick-row:hover{color:var(--amber)}
 .calc-btn{width:100%;padding:14px;background:linear-gradient(135deg,#00c070,#009950);border-radius:12px;border:none;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:8px;transition:opacity 0.2s}
 .calc-btn:disabled{opacity:0.4;cursor:not-allowed}
 .score-block{background:var(--surface2);border-radius:10px;padding:12px}
@@ -323,89 +308,44 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
   </div>
 </div>
 
-<!-- DRAFT OVERLAY -->
+<!-- PICKS OVERLAY -->
 <div class="selector-overlay" id="selector-overlay">
   <div class="selector-sheet">
     <div class="selector-handle"></div>
 
-    <!-- Step: Identity -->
-    <div class="selector-step active" id="step-identity">
-      <div class="selector-title" id="draft-match-name">Match</div>
-      <div class="selector-sub">Who are you drafting as?</div>
-      <div class="identity-grid">
-        <button class="identity-btn" onclick="identifyUser('amitabh')">
-          <div class="identity-name">Amitabh</div>
-          <div class="identity-emoji">🟡</div>
-        </button>
-        <button class="identity-btn" onclick="identifyUser('shivam')">
-          <div class="identity-name">Shivam</div>
-          <div class="identity-emoji">🔵</div>
-        </button>
-      </div>
-      <div id="last-match-info"></div>
-      <div class="selector-footer">
-        <button class="btn-secondary" onclick="closeSelector()">Cancel</button>
-      </div>
-    </div>
-
-    <!-- Step: Team Choice (winner of last match chooses their team before toss) -->
-    <div class="selector-step" id="step-team-choice">
-      <div class="selector-title">Choose Your Team</div>
-      <div class="selector-sub">You won the last match — pick which team you want. Toss winner picks first.</div>
-      <div class="identity-grid" id="team-choice-btns"></div>
-      <div class="selector-footer">
-        <button class="btn-secondary" onclick="goToStep('step-identity')">← Back</button>
-      </div>
-    </div>
-
-    <!-- Step: Draft Board -->
-    <div class="selector-step" id="step-draft">
-      <div class="draft-header">
-        <div class="draft-turn-label" id="draft-turn-display">Loading…</div>
-        <div class="draft-count" id="draft-picks-count">0/10</div>
-      </div>
-      <div id="draft-board"></div>
-      <div class="player-list" id="draft-player-list" style="margin-top:12px"></div>
-      <div class="selector-footer">
-        <button class="btn-secondary" onclick="closeSelector()">Close</button>
-      </div>
-    </div>
-
-    <!-- Step: Captain -->
-    <div class="selector-step" id="step-captain">
-      <div class="selector-title">Pick Your Captain</div>
-      <div class="selector-sub">Their points are doubled ✕2</div>
-      <div class="player-list" id="captain-list-draft"></div>
-      <div class="selector-footer">
-        <button class="btn-secondary" onclick="goToStep('step-draft')">← Back to Draft</button>
-      </div>
-    </div>
-
-    <!-- Step: Complete -->
-    <div class="selector-step" id="step-complete">
-      <div class="selector-title">Draft Complete ✓</div>
-      <div class="selector-sub">Selections saved — good luck!</div>
-      <div id="draft-complete-summary"></div>
-      <div class="selector-footer">
-        <button class="btn-primary" onclick="closeSelector()">Done</button>
-      </div>
-    </div>
-
-    <!-- Step: Admin Picks Entry (for completed/any match — enter both users' picks) -->
-    <div class="selector-step" id="step-admin">
+    <!-- Step: Enter Picks -->
+    <div class="selector-step active" id="step-admin">
       <div class="selector-title" id="admin-match-name">Enter Picks</div>
-      <div class="selector-sub" style="margin-bottom:14px">Tap player to add · Tap added player to set captain (C) · Tap captain to remove</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button id="admin-tab-a" class="admin-tab active" onclick="setAdminMode('amitabh')">Amitabh</button>
-        <button id="admin-tab-s" class="admin-tab" onclick="setAdminMode('shivam')">Shivam</button>
+      <div class="selector-sub" id="admin-match-sub" style="margin-bottom:14px">Type player names · select captain</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <span class="pick-col-label amitabh-head">Amitabh</span>
+          <input class="pick-input" id="a-p1" placeholder="Player 1" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="a-p2" placeholder="Player 2" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="a-p3" placeholder="Player 3" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="a-p4" placeholder="Player 4" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="a-p5" placeholder="Player 5" list="players-list" autocomplete="off"/>
+          <span class="pick-cap-label">Captain (2× pts)</span>
+          <select class="pick-select" id="a-cap">
+            <option value="">— select —</option>
+          </select>
+        </div>
+        <div>
+          <span class="pick-col-label shivam-head">Shivam</span>
+          <input class="pick-input" id="s-p1" placeholder="Player 1" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="s-p2" placeholder="Player 2" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="s-p3" placeholder="Player 3" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="s-p4" placeholder="Player 4" list="players-list" autocomplete="off"/>
+          <input class="pick-input" id="s-p5" placeholder="Player 5" list="players-list" autocomplete="off"/>
+          <span class="pick-cap-label">Captain (2× pts)</span>
+          <select class="pick-select" id="s-cap">
+            <option value="">— select —</option>
+          </select>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div id="admin-picks-a" class="admin-picks-box"></div>
-        <div id="admin-picks-s" class="admin-picks-box"></div>
-      </div>
-      <div class="player-list" id="admin-player-list"></div>
+      <datalist id="players-list"></datalist>
       <div class="selector-footer">
-        <button class="btn-primary" id="btn-save-picks" onclick="saveAdminPicks()" disabled>Save Picks</button>
+        <button class="btn-primary" id="btn-save-picks" onclick="saveAdminPicks()">Save Picks</button>
         <button id="btn-goto-scores" class="btn-secondary" onclick="goToScoresStep()" style="display:none">View Scores →</button>
         <button class="btn-secondary" onclick="closeSelector()">Cancel</button>
       </div>
@@ -431,9 +371,6 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 <script>
 const API = '';
 let currentMatchId = null;
-let currentUser = null;
-let draftState = null;
-let draftPollTimer = null;
 let liveMatchId = null;
 let liveInterval = null;
 
@@ -607,12 +544,13 @@ async function loadFixtures() {
         actionBtn = `<button class="select-btn view-btn" onclick="viewLockedMatch('${m.match_id}', ${label})">View Result →</button>`;
       } else if (isComplete) {
         actionBtn = savedIds.has(m.match_id)
-          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Edit Picks &amp; Scores →</button>`
-          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Enter Picks →</button>`;
+          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label}, false)">Edit Picks &amp; Scores →</button>`
+          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label}, false)">Enter Picks →</button>`;
       } else {
+        // upcoming or live: try to fetch player suggestions from Cricbuzz
         actionBtn = savedIds.has(m.match_id)
-          ? `<button class="select-btn view-btn" onclick="viewScorecard('${m.match_id}', ${label})">View Draft →</button>`
-          : `<button class="select-btn" onclick="openSelector('${m.match_id}', ${label})">Draft Players →</button>`;
+          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label}, true)">Edit Picks →</button>`
+          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label}, true)">Enter Picks →</button>`;
       }
       list.innerHTML += `
       <div class="fixture-card ${isComplete ? '' : 'upcoming'}">
@@ -632,454 +570,122 @@ async function loadFixtures() {
   }
 }
 
-async function viewScorecard(matchId, matchName) {
-  document.getElementById('draft-match-name').textContent = matchName;
-  document.getElementById('selector-overlay').classList.add('open');
-  goToStep('step-complete');
-  document.querySelector('#step-complete .selector-title').textContent = 'Saved Selections';
-  document.querySelector('#step-complete .selector-sub').textContent = matchName;
-  document.getElementById('draft-complete-summary').innerHTML =
-    '<p style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Loading…</p>';
-  try {
-    const res = await fetch(API + '/api/selections/' + matchId);
-    const data = await res.json();
-    if (!data.exists) { showToast('No selections found.'); closeSelector(); return; }
-    const fakePicks = [
-      ...data.amitabh_players.map(p => ({player: p, user: 'amitabh'})),
-      ...data.shivam_players.map(p => ({player: p, user: 'shivam'})),
-    ];
-    showCompleteScreen({
-      picks: fakePicks,
-      amitabh_captain: data.amitabh_captain,
-      shivam_captain: data.shivam_captain,
-    });
-    document.querySelector('#step-complete .selector-title').textContent = 'Saved Selections';
-    document.querySelector('#step-complete .selector-sub').textContent = matchName;
-  } catch(e) { showToast('Error loading scorecard.'); closeSelector(); }
-}
-
-// ── DRAFT ─────────────────────────────────────────────
-async function openSelector(matchId, matchName) {
-  currentMatchId = matchId;
-  currentUser = localStorage.getItem('draft-user-' + matchId) || null;
-  document.getElementById('draft-match-name').textContent = matchName;
-  goToStep('step-identity');
-  document.getElementById('selector-overlay').classList.add('open');
-  try {
-    const [draftRes, playersRes] = await Promise.all([
-      fetch(API + '/api/draft/' + matchId),
-      fetch(API + '/api/match/' + matchId + '/players'),
-    ]);
-    draftState = await draftRes.json();
-    const playerData = await playersRes.json();
-    // Override scorecard-only players with the richer merged set
-    if (playerData.team1_players && playerData.team1_players.length) {
-      draftState.team1_players = playerData.team1_players.map(p => p.name || p);
-      draftState.team2_players = (playerData.team2_players || []).map(p => p.name || p);
-      draftState.players = [...draftState.team1_players, ...draftState.team2_players];
-      draftState.team1_short = playerData.team1_short || draftState.team1_short;
-      draftState.team2_short = playerData.team2_short || draftState.team2_short;
-      draftState.team1 = playerData.team1 || draftState.team1;
-      draftState.team2 = playerData.team2 || draftState.team2;
-    }
-    renderLastMatchInfo(draftState);
-    if (currentUser) afterIdentify();
-  } catch(e) { showToast('Error loading draft.'); }
-}
-
-async function identifyUser(user) {
-  currentUser = user;
-  localStorage.setItem('draft-user-' + currentMatchId, user);
-  await fetch(API + '/api/draft/' + currentMatchId + '/start', {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user})
-  });
-  const res = await fetch(API + '/api/draft/' + currentMatchId);
-  draftState = await res.json();
-  afterIdentify();
-}
-
-function afterIdentify() {
-  const s = draftState;
-  if (!s) return;
-  // Step 1: winner must choose their team before drafting begins
-  const myChoice = currentUser === 'amitabh' ? s.amitabh_team_choice : s.shivam_team_choice;
-  const isWinner = s.last_match_winner === currentUser;
-  if (isWinner && !myChoice && (s.team1 || s.team1_short)) {
-    showTeamChoiceStep(s);
-    return;
-  }
-  if ((s.picks || []).length >= 10) {
-    const myCap = currentUser === 'amitabh' ? s.amitabh_captain : s.shivam_captain;
-    if (s.is_complete) { showCompleteScreen(s); return; }
-    if (!myCap) { showCaptainScreen(s); return; }
-  }
-  goToStep('step-draft');
-  renderDraftBoard(s);
-  startDraftPolling();
-}
-
-function showTeamChoiceStep(state) {
-  const t1Label = state.team1_short || state.team1 || 'Team 1';
-  const t2Label = state.team2_short || state.team2 || 'Team 2';
-  const t1Full  = state.team1 || t1Label;
-  const t2Full  = state.team2 || t2Label;
-  document.getElementById('team-choice-btns').innerHTML = `
-    <button class="identity-btn" onclick='makeTeamChoice(${JSON.stringify(t1Full)})'>
-      <div class="identity-name">${t1Label}</div>
-    </button>
-    <button class="identity-btn" onclick='makeTeamChoice(${JSON.stringify(t2Full)})'>
-      <div class="identity-name">${t2Label}</div>
-    </button>`;
-  goToStep('step-team-choice');
-}
-
-async function makeTeamChoice(teamName) {
-  try {
-    const res = await fetch(API + '/api/draft/' + currentMatchId + '/choose_team', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({user: currentUser, team: teamName})
-    });
-    const data = await res.json();
-    if (data.error) { showToast(data.error); return; }
-    draftState = Object.assign({}, draftState, data);
-    showToast('Locked in: ' + teamName, 'success');
-    afterIdentify();
-  } catch(e) { showToast('Error choosing team.'); }
-}
-
-function renderLastMatchInfo(state) {
-  const el = document.getElementById('last-match-info');
-  if (!el || !state || !state.last_match_desc) return;
-  const winner = state.last_match_winner === 'amitabh' ? 'Amitabh' : 'Shivam';
-  el.innerHTML = `<div class="last-match-box">
-    <div class="last-match-label">${state.last_match_desc}</div>
-    <div class="last-match-score">${winner} won · A ${state.last_match_amitabh} – S ${state.last_match_shivam}</div>
-    <div class="last-match-first">${winner} chooses team 🏏 · Toss winner picks first</div>
-  </div>`;
-}
-
-function renderDraftBoard(state) {
-  const picks = state.picks || [];
-  const n = picks.length;
-  const done = n >= 10;
-  const isMyTurn = !done && state.current_turn === currentUser;
-  const turnName = state.current_turn === 'amitabh' ? 'Amitabh' : 'Shivam';
-  document.getElementById('draft-turn-display').textContent =
-    done ? 'All picks done!' : isMyTurn ? 'Your turn to pick' : `${turnName}'s turn…`;
-  document.getElementById('draft-picks-count').textContent = n + '/10';
-
-  const aPicks = picks.filter(p => p.user === 'amitabh').map(p => p.player);
-  const sPicks = picks.filter(p => p.user === 'shivam').map(p => p.player);
-  document.getElementById('draft-board').innerHTML = `
-    <div class="draft-cols">
-      <div class="draft-col">
-        <div class="draft-col-head amitabh-head">Amitabh (${aPicks.length}/5)</div>
-        ${aPicks.map(p => `<div class="draft-pick-item">${p}</div>`).join('')}
-        ${Array(5 - aPicks.length).fill('<div class="draft-pick-empty">—</div>').join('')}
-      </div>
-      <div class="draft-col">
-        <div class="draft-col-head shivam-head">Shivam (${sPicks.length}/5)</div>
-        ${sPicks.map(p => `<div class="draft-pick-item">${p}</div>`).join('')}
-        ${Array(5 - sPicks.length).fill('<div class="draft-pick-empty">—</div>').join('')}
-      </div>
-    </div>`;
-
-  const pickedNames = picks.map(p => p.player);
-  const pl = document.getElementById('draft-player-list');
-  if (isMyTurn) {
-    let html = '';
-    if (state.team1_players && state.team1_players.length) {
-      const t1 = state.team1_players.filter(p => !pickedNames.includes(p));
-      const t2 = (state.team2_players || []).filter(p => !pickedNames.includes(p));
-      if (t1.length) html += `<div class="team-group-head">${state.team1_short || 'Team 1'}</div>` + t1.map(p => playerPickBtn(p)).join('');
-      if (t2.length) html += `<div class="team-group-head">${state.team2_short || 'Team 2'}</div>` + t2.map(p => playerPickBtn(p)).join('');
-    } else {
-      html = (state.players || []).filter(p => !pickedNames.includes(p)).map(p => playerPickBtn(p)).join('');
-    }
-    if (!html) html = '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">No players available yet — check back after the toss.</p>';
-    pl.innerHTML = html;
-  } else if (!done) {
-    pl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">${turnName} is picking…<br><span style="font-size:11px;color:var(--hint)">Auto-refreshes every 3s</span></div>`;
-  } else {
-    pl.innerHTML = '';
-    const myCap = currentUser === 'amitabh' ? state.amitabh_captain : state.shivam_captain;
-    if (!myCap && currentUser) setTimeout(() => showCaptainScreen(state), 400);
-  }
-}
-
-function playerPickBtn(p) {
-  return `<div class="player-item" onclick='makeDraftPick(${JSON.stringify(p)})'><div class="player-item-name">${p}</div></div>`;
-}
-
-async function makeDraftPick(player) {
-  try {
-    const res = await fetch(API + '/api/draft/' + currentMatchId + '/pick', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({user: currentUser, player})
-    });
-    const data = await res.json();
-    if (data.error) { showToast(data.error); return; }
-    draftState = Object.assign({}, draftState, data);
-    renderDraftBoard(draftState);
-  } catch(e) { showToast('Error making pick.'); }
-}
-
-function showCaptainScreen(state) {
-  const myPicks = (state.picks || []).filter(p => p.user === currentUser).map(p => p.player);
-  document.getElementById('captain-list-draft').innerHTML = myPicks.map(p => `
-    <div class="player-item" onclick='makeCaptainPick(${JSON.stringify(p)})'>
-      <div class="player-item-name">${p}</div>
-      <span style="font-size:11px;color:var(--muted)">2× pts</span>
-    </div>`).join('');
-  goToStep('step-captain');
-}
-
-async function makeCaptainPick(captain) {
-  try {
-    const res = await fetch(API + '/api/draft/' + currentMatchId + '/captain', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({user: currentUser, captain})
-    });
-    const data = await res.json();
-    if (data.error) { showToast(data.error); return; }
-    draftState = Object.assign({}, draftState, data);
-    if (data.is_complete) {
-      showCompleteScreen(draftState);
-      showToast('Draft complete! Selections saved ✓', 'success');
-    } else {
-      goToStep('step-draft');
-      renderDraftBoard(draftState);
-      showToast('Captain set! Waiting for other player…');
-    }
-  } catch(e) { showToast('Error setting captain.'); }
-}
-
-function showCompleteScreen(state) {
-  stopDraftPolling();
-  const aPicks = (state.picks || []).filter(p => p.user === 'amitabh').map(p => p.player);
-  const sPicks = (state.picks || []).filter(p => p.user === 'shivam').map(p => p.player);
-  document.getElementById('draft-complete-summary').innerHTML = `
-    <div class="draft-cols" style="margin-top:16px">
-      <div class="draft-col">
-        <div class="draft-col-head amitabh-head">Amitabh</div>
-        ${aPicks.map(p => `<div class="draft-pick-item">${p}${p === state.amitabh_captain ? ' <span class="cap">C</span>' : ''}</div>`).join('')}
-      </div>
-      <div class="draft-col">
-        <div class="draft-col-head shivam-head">Shivam</div>
-        ${sPicks.map(p => `<div class="draft-pick-item">${p}${p === state.shivam_captain ? ' <span class="cap">C</span>' : ''}</div>`).join('')}
-      </div>
-    </div>`;
-  goToStep('step-complete');
-}
-
 function goToStep(id) {
   document.querySelectorAll('.selector-step').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-function startDraftPolling() {
-  stopDraftPolling();
-  draftPollTimer = setInterval(async () => {
-    if (!currentMatchId) return;
-    try {
-      const res = await fetch(API + '/api/draft/' + currentMatchId);
-      const fresh = await res.json();
-      const prev = draftState || {};
-      // Preserve player lists if fresh response has empty (match not started yet)
-      if (!fresh.players || !fresh.players.length) {
-        fresh.players = prev.players || [];
-        fresh.team1_players = prev.team1_players || [];
-        fresh.team2_players = prev.team2_players || [];
-        fresh.team1_short = prev.team1_short || '';
-        fresh.team2_short = prev.team2_short || '';
-      }
-      draftState = fresh;
-      const active = document.querySelector('.selector-step.active');
-      if (!active) return;
-      if (active.id === 'step-draft') {
-        renderDraftBoard(fresh);
-        if (fresh.is_complete) { showCompleteScreen(fresh); stopDraftPolling(); }
-      } else if (active.id === 'step-captain' && fresh.is_complete) {
-        showCompleteScreen(fresh); stopDraftPolling();
-      }
-    } catch(e) {}
-  }, 3000);
-}
-
-function stopDraftPolling() {
-  if (draftPollTimer) { clearInterval(draftPollTimer); draftPollTimer = null; }
-}
-
 function closeSelector() {
   document.getElementById('selector-overlay').classList.remove('open');
-  stopDraftPolling();
 }
 
 // ── ADMIN PICKS ───────────────────────────────────────
-let adminPicks = {amitabh: [], shivam: []};
-let adminCaptains = {amitabh: '', shivam: ''};
-let adminMode = 'amitabh';
-let adminPlayers = {team1: [], team2: [], team1_short: '', team2_short: '', players: []};
 
-async function openAdminPicks(matchId, matchName) {
+function getPicksFromForm() {
+  const get = p => [1,2,3,4,5].map(i => document.getElementById(`${p}-p${i}`).value.trim()).filter(Boolean);
+  return {
+    amitabh: get('a'),
+    shivam:  get('s'),
+    aCap: document.getElementById('a-cap').value,
+    sCap: document.getElementById('s-cap').value,
+  };
+}
+
+function updateCaptainOptions(prefix) {
+  const names = [1,2,3,4,5].map(i => document.getElementById(`${prefix}-p${i}`).value.trim()).filter(Boolean);
+  const sel = document.getElementById(`${prefix}-cap`);
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— select —</option>' +
+    names.map(n => `<option value="${n}"${n === current ? ' selected' : ''}>${n}</option>`).join('');
+}
+
+function wireInputListeners() {
+  ['a','s'].forEach(p => {
+    [1,2,3,4,5].forEach(i => {
+      document.getElementById(`${p}-p${i}`).addEventListener('input', () => updateCaptainOptions(p));
+    });
+  });
+}
+wireInputListeners();
+
+async function openAdminPicks(matchId, matchName, fetchPlayers) {
   currentMatchId = matchId;
-  adminPicks = {amitabh: [], shivam: []};
-  adminCaptains = {amitabh: '', shivam: ''};
-  adminMode = 'amitabh';
   document.getElementById('admin-match-name').textContent = matchName;
+  document.getElementById('admin-match-sub').textContent = 'Type player names · select captain';
   document.getElementById('btn-goto-scores').style.display = 'none';
+  document.getElementById('players-list').innerHTML = '';
+  // Clear all inputs
+  ['a','s'].forEach(p => {
+    [1,2,3,4,5].forEach(i => { document.getElementById(`${p}-p${i}`).value = ''; });
+    document.getElementById(`${p}-cap`).innerHTML = '<option value="">— select —</option>';
+  });
   document.getElementById('selector-overlay').classList.add('open');
   goToStep('step-admin');
-  renderAdminPicks();
-  document.getElementById('admin-player-list').innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">Loading players…</p>';
 
+  // Load existing selections
   try {
-    const [selRes, playersRes] = await Promise.all([
-      fetch(API + '/api/selections/' + matchId),
-      fetch(API + '/api/match/' + matchId + '/players'),
-    ]);
+    const selRes = await fetch(API + '/api/selections/' + matchId);
     const sel = await selRes.json();
-    const pd = await playersRes.json();
-
     if (sel.exists) {
-      adminPicks.amitabh = [...(sel.amitabh_players || [])];
-      adminCaptains.amitabh = sel.amitabh_captain || '';
-      adminPicks.shivam = [...(sel.shivam_players || [])];
-      adminCaptains.shivam = sel.shivam_captain || '';
+      const fill = (prefix, players, cap) => {
+        (players || []).forEach((n, i) => {
+          if (i < 5) document.getElementById(`${prefix}-p${i+1}`).value = n;
+        });
+        updateCaptainOptions(prefix);
+        if (cap) document.getElementById(`${prefix}-cap`).value = cap;
+      };
+      fill('a', sel.amitabh_players, sel.amitabh_captain);
+      fill('s', sel.shivam_players,  sel.shivam_captain);
       document.getElementById('btn-goto-scores').style.display = '';
     }
+  } catch(e) {}
 
-    adminPlayers = {
-      team1: (pd.team1_players || []).map(p => (typeof p === 'string') ? p : p.name).filter(Boolean),
-      team2: (pd.team2_players || []).map(p => (typeof p === 'string') ? p : p.name).filter(Boolean),
-      team1_short: pd.team1_short || 'Team 1',
-      team2_short: pd.team2_short || 'Team 2',
-      players: (pd.players || []).filter(Boolean),
-    };
-
-    renderAdminPicks();
-    renderAdminPlayerList();
-  } catch(e) {
-    showToast('Error loading players.');
-    document.getElementById('admin-player-list').innerHTML = '<p style="color:var(--red);text-align:center;padding:20px;font-size:13px">Failed to load players. Is the API running?</p>';
+  // For upcoming/live matches: fetch players from all 3 Cricbuzz endpoints as datalist suggestions
+  if (fetchPlayers) {
+    document.getElementById('admin-match-sub').textContent = 'Loading player suggestions…';
+    try {
+      const pd = await fetch(API + '/api/match/' + matchId + '/players').then(r => r.json());
+      const all = (pd.players || []).filter(Boolean);
+      if (all.length) {
+        document.getElementById('players-list').innerHTML = all.map(n => `<option value="${n}">`).join('');
+        document.getElementById('admin-match-sub').textContent = `${all.length} players loaded · type to autocomplete`;
+      } else {
+        document.getElementById('admin-match-sub').textContent = 'No player data yet · type names manually';
+      }
+    } catch(e) {
+      document.getElementById('admin-match-sub').textContent = 'Could not fetch players · type names manually';
+    }
   }
-}
-
-function setAdminMode(user) {
-  adminMode = user;
-  document.getElementById('admin-tab-a').classList.toggle('active', user === 'amitabh');
-  document.getElementById('admin-tab-s').classList.toggle('active', user === 'shivam');
-  renderAdminPlayerList();
-}
-
-function adminClickPlayer(name) {
-  const picks = adminPicks[adminMode];
-  const idx = picks.indexOf(name);
-  if (idx === -1) {
-    if (picks.length >= 5) { showToast('Already 5 picks for ' + (adminMode === 'amitabh' ? 'Amitabh' : 'Shivam')); return; }
-    picks.push(name);
-    if (!adminCaptains[adminMode]) adminCaptains[adminMode] = name;
-  } else if (adminCaptains[adminMode] !== name) {
-    // Already picked but not captain → make captain
-    adminCaptains[adminMode] = name;
-  } else {
-    // Already captain → remove
-    picks.splice(idx, 1);
-    adminCaptains[adminMode] = picks[0] || '';
-  }
-  renderAdminPicks();
-  renderAdminPlayerList();
-}
-
-function renderAdminPicks() {
-  ['amitabh', 'shivam'].forEach(user => {
-    const el = document.getElementById('admin-picks-' + (user === 'amitabh' ? 'a' : 's'));
-    const picks = adminPicks[user];
-    const cap = adminCaptains[user];
-    const colorClass = user === 'amitabh' ? 'amitabh-head' : 'shivam-head';
-    const label = user === 'amitabh' ? 'Amitabh' : 'Shivam';
-    const rows = picks.map(p => `
-      <div class="admin-pick-row" onclick='adminClickPlayer(${JSON.stringify(p)})'>
-        <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
-        ${p === cap ? '<span class="cap">C</span>' : '<span style="font-size:9px;color:var(--hint)">tap→C</span>'}
-      </div>`).join('');
-    el.innerHTML = `<div class="admin-picks-head ${colorClass}">${label} (${picks.length}/5)</div>` +
-      (rows || '<div style="font-size:11px;color:var(--hint);padding:4px 0">None selected</div>');
-  });
-
-  const canSave = adminPicks.amitabh.length === 5 && adminPicks.shivam.length === 5 &&
-                  adminCaptains.amitabh && adminCaptains.shivam;
-  document.getElementById('btn-save-picks').disabled = !canSave;
-}
-
-function renderAdminPlayerList() {
-  const myPicks = adminPicks[adminMode];
-  const el = document.getElementById('admin-player-list');
-  let html = '';
-
-  function renderGroup(players, groupName) {
-    if (!players.length) return;
-    html += `<div class="team-group-head">${groupName}</div>`;
-    players.forEach(p => {
-      const inList = myPicks.includes(p);
-      const isCap = adminCaptains[adminMode] === p;
-      let cls = 'player-item';
-      if (inList) cls += isCap ? ' captain' : ' selected';
-      const badge = inList
-        ? (isCap ? '<span class="player-item-badge badge-cap">CAP</span>' : '<span class="player-item-badge badge-sel">IN</span>')
-        : '';
-      const hint = inList ? (isCap ? 'tap to remove' : 'tap to set captain') : '';
-      const num = inList ? (myPicks.indexOf(p) + 1) : '';
-      html += `<div class="${cls}" onclick='adminClickPlayer(${JSON.stringify(p)})'>
-        <div class="player-num">${num}</div>
-        <div style="flex:1">
-          <div class="player-item-name">${p}</div>
-          ${hint ? `<div style="font-size:10px;color:var(--hint)">${hint}</div>` : ''}
-        </div>
-        ${badge}
-      </div>`;
-    });
-  }
-
-  if (adminPlayers.team1.length || adminPlayers.team2.length) {
-    renderGroup(adminPlayers.team1, adminPlayers.team1_short || 'Team 1');
-    renderGroup(adminPlayers.team2, adminPlayers.team2_short || 'Team 2');
-  } else if (adminPlayers.players.length) {
-    renderGroup(adminPlayers.players, 'All Players');
-  } else {
-    html = '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">No player data yet.<br><span style="font-size:11px;color:var(--hint)">Cricbuzz data not available for this match.</span></p>';
-  }
-
-  el.innerHTML = html || '<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">No players available.</p>';
 }
 
 async function saveAdminPicks() {
+  const {amitabh, shivam, aCap, sCap} = getPicksFromForm();
+  if (amitabh.length !== 5) { showToast('Enter all 5 players for Amitabh'); return; }
+  if (shivam.length  !== 5) { showToast('Enter all 5 players for Shivam');  return; }
+  if (!aCap) { showToast('Select Amitabh captain'); return; }
+  if (!sCap) { showToast('Select Shivam captain');  return; }
+
   const btn = document.getElementById('btn-save-picks');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
+  btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const res = await fetch(API + '/api/select', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         match_id: currentMatchId,
-        amitabh_players: adminPicks.amitabh,
-        amitabh_captain: adminCaptains.amitabh,
-        shivam_players: adminPicks.shivam,
-        shivam_captain: adminCaptains.shivam,
+        amitabh_players: amitabh, amitabh_captain: aCap,
+        shivam_players:  shivam,  shivam_captain:  sCap,
       }),
     });
     const data = await res.json();
     if (data.error) { showToast(data.error); btn.disabled = false; btn.textContent = 'Save Picks'; return; }
     showToast('Picks saved!', 'success');
     document.getElementById('btn-goto-scores').style.display = '';
-    btn.textContent = 'Save Picks';
-    btn.disabled = false;
+    btn.disabled = false; btn.textContent = 'Save Picks';
     goToScoresStep();
   } catch(e) {
     showToast('Error saving picks.');
-    btn.disabled = false;
-    btn.textContent = 'Save Picks';
+    btn.disabled = false; btn.textContent = 'Save Picks';
   }
 }
 
@@ -1150,23 +756,24 @@ function goToScoresStep() {
   // Restore buttons (may have been hidden by viewLockedMatch)
   document.getElementById('btn-calc-scores').style.display = '';
   document.getElementById('btn-score-edit-picks').style.display = '';
-  document.getElementById('score-status-text').textContent = 'Click Calculate to fetch scores from Cricbuzz scorecard';
+  document.getElementById('score-status-text').textContent = 'Click Calculate to fetch scores from Cricbuzz';
+  const {amitabh, shivam, aCap, sCap} = getPicksFromForm();
   document.getElementById('score-result-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <div class="admin-picks-box">
         <div class="admin-picks-head amitabh-head">Amitabh</div>
-        ${adminPicks.amitabh.map(p => `
+        ${amitabh.map(p => `
           <div class="admin-pick-row">
             <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
-            ${p === adminCaptains.amitabh ? '<span class="cap">C</span>' : ''}
+            ${p === aCap ? '<span class="cap">C</span>' : ''}
           </div>`).join('')}
       </div>
       <div class="admin-picks-box">
         <div class="admin-picks-head shivam-head">Shivam</div>
-        ${adminPicks.shivam.map(p => `
+        ${shivam.map(p => `
           <div class="admin-pick-row">
             <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
-            ${p === adminCaptains.shivam ? '<span class="cap">C</span>' : ''}
+            ${p === sCap ? '<span class="cap">C</span>' : ''}
           </div>`).join('')}
       </div>
     </div>`;
