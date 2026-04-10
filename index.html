@@ -202,6 +202,39 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
 .score-user-label{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
 .score-big{font-family:'Rajdhani',sans-serif;font-size:36px;font-weight:700;color:var(--text);line-height:1;margin-top:4px}
 .score-big.winner{color:var(--green)}
+
+/* PICK TABS */
+.pick-tabs{display:flex;gap:2px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:16px}
+.pick-tab-btn{flex:1;padding:9px;text-align:center;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:all 0.2s;border:none;background:transparent;font-family:'DM Sans',sans-serif;letter-spacing:0.02em}
+.pick-tab-btn.active-a{color:#000;background:var(--amber)}
+.pick-tab-btn.active-s{color:#fff;background:var(--blue)}
+
+/* SELECTION SUMMARY */
+.sel-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.sel-box{background:var(--surface2);border-radius:10px;padding:10px 12px;border:1px solid var(--border);transition:border-color 0.2s;min-height:52px}
+.sel-box.active-user{border-color:var(--amber)}
+.sel-box-head{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.sel-box-head.a{color:var(--amber)}
+.sel-box-head.s{color:var(--blue)}
+.sel-chip{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text);padding:2px 0;line-height:1.4}
+.sel-chip .c-badge{font-size:8px;background:var(--amber);color:#000;border-radius:2px;padding:1px 4px;font-weight:700;flex-shrink:0}
+.sel-empty-msg{font-size:11px;color:var(--hint);font-style:italic}
+
+/* PLAYER GRID */
+.pg-team-head{font-size:10px;font-weight:700;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.player-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+.pg-card{padding:10px 10px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.12s;position:relative;user-select:none;-webkit-tap-highlight-color:transparent}
+.pg-card:active{transform:scale(0.96)}
+.pg-card.picked{border-color:var(--amber);background:var(--amber-dim)}
+.pg-card.is-captain{border-color:var(--amber);background:rgba(245,166,35,0.22)}
+.pg-card.other-picked{border-color:rgba(74,158,255,0.4);background:rgba(74,158,255,0.06)}
+.pg-name{font-size:12px;color:var(--text);line-height:1.3;padding-right:20px}
+.pg-badge-wrap{position:absolute;top:7px;right:7px}
+.pg-sel-dot{width:8px;height:8px;border-radius:50%;background:var(--amber)}
+.pg-cap-chip{font-size:8px;background:var(--amber);color:#000;border-radius:3px;padding:1px 4px;font-weight:700}
+.pg-other-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);margin-top:1px}
+.picks-loading{text-align:center;padding:32px;color:var(--muted);font-size:13px}
+.picks-fallback{margin-top:4px}
 </style>
 </head>
 <body>
@@ -316,36 +349,60 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
     <!-- Step: Enter Picks -->
     <div class="selector-step active" id="step-admin">
       <div class="selector-title" id="admin-match-name">Enter Picks</div>
-      <div class="selector-sub" id="admin-match-sub" style="margin-bottom:14px">Type player names · select captain</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <span class="pick-col-label amitabh-head">Amitabh</span>
-          <input class="pick-input" id="a-p1" placeholder="Player 1" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="a-p2" placeholder="Player 2" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="a-p3" placeholder="Player 3" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="a-p4" placeholder="Player 4" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="a-p5" placeholder="Player 5" list="players-list" autocomplete="off"/>
-          <span class="pick-cap-label">Captain (2× pts)</span>
-          <select class="pick-select" id="a-cap">
-            <option value="">— select —</option>
-          </select>
+      <div class="selector-sub" id="admin-match-sub" style="margin-bottom:12px">Loading players…</div>
+
+      <!-- Selection summary — always visible -->
+      <div class="sel-summary">
+        <div class="sel-box active-user" id="sel-box-a">
+          <div class="sel-box-head a">Amitabh</div>
+          <div id="sel-chips-a"><span class="sel-empty-msg">No picks yet</span></div>
         </div>
-        <div>
-          <span class="pick-col-label shivam-head">Shivam</span>
-          <input class="pick-input" id="s-p1" placeholder="Player 1" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="s-p2" placeholder="Player 2" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="s-p3" placeholder="Player 3" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="s-p4" placeholder="Player 4" list="players-list" autocomplete="off"/>
-          <input class="pick-input" id="s-p5" placeholder="Player 5" list="players-list" autocomplete="off"/>
-          <span class="pick-cap-label">Captain (2× pts)</span>
-          <select class="pick-select" id="s-cap">
-            <option value="">— select —</option>
-          </select>
+        <div class="sel-box" id="sel-box-s">
+          <div class="sel-box-head s">Shivam</div>
+          <div id="sel-chips-s"><span class="sel-empty-msg">No picks yet</span></div>
         </div>
       </div>
-      <datalist id="players-list"></datalist>
+
+      <!-- Tab switcher -->
+      <div class="pick-tabs">
+        <button class="pick-tab-btn active-a" id="tab-btn-a" onclick="switchPickTab('amitabh')">Amitabh</button>
+        <button class="pick-tab-btn" id="tab-btn-s" onclick="switchPickTab('shivam')">Shivam</button>
+      </div>
+
+      <!-- Tap-to-select player grid (ESPN) -->
+      <div id="player-grid-wrap">
+        <div class="picks-loading" id="picks-loading">Fetching players from ESPN…</div>
+        <div id="player-grid-content" style="display:none"></div>
+      </div>
+
+      <!-- Text input fallback (shown if ESPN fails) -->
+      <div class="picks-fallback" id="picks-fallback" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <span class="pick-col-label amitabh-head">Amitabh</span>
+            <input class="pick-input" id="a-p1" placeholder="Player 1" autocomplete="off"/>
+            <input class="pick-input" id="a-p2" placeholder="Player 2" autocomplete="off"/>
+            <input class="pick-input" id="a-p3" placeholder="Player 3" autocomplete="off"/>
+            <input class="pick-input" id="a-p4" placeholder="Player 4" autocomplete="off"/>
+            <input class="pick-input" id="a-p5" placeholder="Player 5" autocomplete="off"/>
+            <span class="pick-cap-label">Captain (2× pts)</span>
+            <select class="pick-select" id="a-cap"><option value="">— select —</option></select>
+          </div>
+          <div>
+            <span class="pick-col-label shivam-head">Shivam</span>
+            <input class="pick-input" id="s-p1" placeholder="Player 1" autocomplete="off"/>
+            <input class="pick-input" id="s-p2" placeholder="Player 2" autocomplete="off"/>
+            <input class="pick-input" id="s-p3" placeholder="Player 3" autocomplete="off"/>
+            <input class="pick-input" id="s-p4" placeholder="Player 4" autocomplete="off"/>
+            <input class="pick-input" id="s-p5" placeholder="Player 5" autocomplete="off"/>
+            <span class="pick-cap-label">Captain (2× pts)</span>
+            <select class="pick-select" id="s-cap"><option value="">— select —</option></select>
+          </div>
+        </div>
+      </div>
+
       <div class="selector-footer">
-        <button class="btn-primary" id="btn-save-picks" onclick="saveAdminPicks()">Save Picks</button>
+        <button class="btn-primary" id="btn-save-picks" onclick="saveAdminPicks()" disabled>Save Picks</button>
         <button id="btn-goto-scores" class="btn-secondary" onclick="goToScoresStep()" style="display:none">View Scores →</button>
         <button class="btn-secondary" onclick="closeSelector()">Cancel</button>
       </div>
@@ -354,10 +411,10 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:18px 2
     <!-- Step: Score Results -->
     <div class="selector-step" id="step-scores">
       <div class="selector-title">Score Results</div>
-      <div class="selector-sub" id="score-status-text">Click Calculate to fetch scores from Cricbuzz</div>
+      <div class="selector-sub" id="score-status-text">Click Calculate to fetch scores</div>
       <div id="score-result-body" style="margin:12px 0"></div>
       <div class="selector-footer">
-        <button class="calc-btn" id="btn-calc-scores" onclick="calculateScores()">⚡ Calculate Scores from Cricbuzz</button>
+        <button class="calc-btn" id="btn-calc-scores" onclick="calculateScores()">⚡ Calculate Scores</button>
         <button class="btn-secondary" id="btn-score-edit-picks" onclick="goToStep('step-admin')">← Edit Picks</button>
         <button class="btn-secondary" onclick="closeSelector()">Close</button>
       </div>
@@ -373,6 +430,12 @@ const API = '';
 let currentMatchId = null;
 let liveMatchId = null;
 let liveInterval = null;
+
+// ── PICKS STATE ───────────────────────────────────────
+let picksState = { amitabh: { players: [], captain: '' }, shivam: { players: [], captain: '' } };
+let activePickTab = 'amitabh';
+let picksPlayerData = null; // { team1_players, team1_short, team2_players, team2_short }
+let picksUseFallback = false;
 
 // ── PAGE NAV ──────────────────────────────────────────
 function showPage(id, el) {
@@ -544,13 +607,12 @@ async function loadFixtures() {
         actionBtn = `<button class="select-btn view-btn" onclick="viewLockedMatch('${m.match_id}', ${label})">View Result →</button>`;
       } else if (isComplete) {
         actionBtn = savedIds.has(m.match_id)
-          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label}, false)">Edit Picks &amp; Scores →</button>`
-          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label}, false)">Enter Picks →</button>`;
+          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Edit Picks &amp; Scores →</button>`
+          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Enter Picks →</button>`;
       } else {
-        // upcoming or live: try to fetch player suggestions from Cricbuzz
         actionBtn = savedIds.has(m.match_id)
-          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label}, true)">Edit Picks →</button>`
-          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label}, true)">Enter Picks →</button>`;
+          ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Edit Picks →</button>`
+          : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Enter Picks →</button>`;
       }
       list.innerHTML += `
       <div class="fixture-card ${isComplete ? '' : 'upcoming'}">
@@ -581,104 +643,246 @@ function closeSelector() {
 
 // ── ADMIN PICKS ───────────────────────────────────────
 
-function getPicksFromForm() {
-  const get = p => [1,2,3,4,5].map(i => document.getElementById(`${p}-p${i}`).value.trim()).filter(Boolean);
-  return {
-    amitabh: get('a'),
-    shivam:  get('s'),
-    aCap: document.getElementById('a-cap').value,
-    sCap: document.getElementById('s-cap').value,
-  };
-}
-
-function updateCaptainOptions(prefix) {
-  const names = [1,2,3,4,5].map(i => document.getElementById(`${prefix}-p${i}`).value.trim()).filter(Boolean);
-  const sel = document.getElementById(`${prefix}-cap`);
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— select —</option>' +
-    names.map(n => `<option value="${n}"${n === current ? ' selected' : ''}>${n}</option>`).join('');
-}
-
-function wireInputListeners() {
+// ── Fallback: wire text-input listeners ──────────────
+function _wireFallbackListeners() {
   ['a','s'].forEach(p => {
     [1,2,3,4,5].forEach(i => {
-      document.getElementById(`${p}-p${i}`).addEventListener('input', () => updateCaptainOptions(p));
+      const el = document.getElementById(`${p}-p${i}`);
+      if (el) el.addEventListener('input', () => _fallbackUpdateCap(p));
     });
   });
 }
-wireInputListeners();
+function _fallbackUpdateCap(prefix) {
+  const names = [1,2,3,4,5].map(i => document.getElementById(`${prefix}-p${i}`).value.trim()).filter(Boolean);
+  const sel = document.getElementById(`${prefix}-cap`);
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— select —</option>' +
+    names.map(n => `<option${n===cur?' selected':''}>${n}</option>`).join('');
+  _fallbackCheckSave();
+}
+function _fallbackCheckSave() {
+  const get = p => [1,2,3,4,5].map(i => document.getElementById(`${p}-p${i}`).value.trim()).filter(Boolean);
+  const ok = get('a').length===5 && get('s').length===5 &&
+             document.getElementById('a-cap').value && document.getElementById('s-cap').value;
+  document.getElementById('btn-save-picks').disabled = !ok;
+}
+_wireFallbackListeners();
 
-async function openAdminPicks(matchId, matchName, fetchPlayers) {
-  currentMatchId = matchId;
-  document.getElementById('admin-match-name').textContent = matchName;
-  document.getElementById('admin-match-sub').textContent = 'Type player names · select captain';
-  document.getElementById('btn-goto-scores').style.display = 'none';
-  document.getElementById('players-list').innerHTML = '';
-  // Clear all inputs
-  ['a','s'].forEach(p => {
-    [1,2,3,4,5].forEach(i => { document.getElementById(`${p}-p${i}`).value = ''; });
-    document.getElementById(`${p}-cap`).innerHTML = '<option value="">— select —</option>';
+// ── Tap-to-select helpers ─────────────────────────────
+function switchPickTab(user) {
+  activePickTab = user;
+  const tabA = document.getElementById('tab-btn-a');
+  const tabS = document.getElementById('tab-btn-s');
+  tabA.className = 'pick-tab-btn' + (user==='amitabh' ? ' active-a' : '');
+  tabS.className = 'pick-tab-btn' + (user==='shivam'  ? ' active-s' : '');
+  document.getElementById('sel-box-a').classList.toggle('active-user', user==='amitabh');
+  document.getElementById('sel-box-s').classList.toggle('active-user', user==='shivam');
+  _renderGridContent();
+}
+
+function togglePlayerPick(name) {
+  const st = picksState[activePickTab];
+  if (st.captain === name) {
+    // captain → deselect completely
+    st.players = st.players.filter(p => p !== name);
+    st.captain = '';
+  } else if (st.players.includes(name)) {
+    // selected → promote to captain
+    st.captain = name;
+  } else {
+    // unselected → add pick
+    if (st.players.length >= 5) {
+      const who = activePickTab === 'amitabh' ? 'Amitabh' : 'Shivam';
+      showToast(`${who} already has 5 players`); return;
+    }
+    st.players.push(name);
+  }
+  _renderPicksUI();
+}
+
+function _renderPicksUI() {
+  _renderSummary();
+  _renderGridContent();
+  _updateSaveBtn();
+}
+
+function _renderSummary() {
+  ['amitabh','shivam'].forEach(user => {
+    const st = picksState[user];
+    const el = document.getElementById('sel-chips-' + (user==='amitabh'?'a':'s'));
+    if (!st.players.length) {
+      el.innerHTML = '<span class="sel-empty-msg">No picks yet</span>'; return;
+    }
+    el.innerHTML = st.players.map(p => `
+      <div class="sel-chip">
+        <span>${p}</span>
+        ${p===st.captain ? '<span class="c-badge">C</span>' : ''}
+      </div>`).join('');
   });
+}
+
+function _renderGridContent() {
+  if (!picksPlayerData) return;
+  const { team1_players, team1_short, team2_players, team2_short } = picksPlayerData;
+  const stA = picksState.amitabh, stS = picksState.shivam;
+  const stMe = picksState[activePickTab];
+  const stOther = picksState[activePickTab==='amitabh'?'shivam':'amitabh'];
+
+  function cards(players) {
+    return players.map(name => {
+      const isMine = stMe.players.includes(name);
+      const isCap  = stMe.captain === name;
+      const isOther = stOther.players.includes(name);
+      let cls = 'pg-card';
+      if (isCap)        cls += ' is-captain';
+      else if (isMine)  cls += ' picked';
+      else if (isOther) cls += ' other-picked';
+      let badge = '';
+      if (isCap)        badge = '<div class="pg-badge-wrap"><div class="pg-cap-chip">C</div></div>';
+      else if (isMine)  badge = '<div class="pg-badge-wrap"><div class="pg-sel-dot"></div></div>';
+      else if (isOther) badge = '<div class="pg-badge-wrap"><div class="pg-other-dot"></div></div>';
+      return `<div class="${cls}" onclick="togglePlayerPick(${JSON.stringify(name)})">
+        <div class="pg-name">${name}</div>${badge}
+      </div>`;
+    }).join('');
+  }
+
+  const t1html = team1_players.length ? `
+    <div class="pg-team-head">${team1_short || 'Team 1'}</div>
+    <div class="player-grid">${cards(team1_players)}</div>` : '';
+  const t2html = team2_players.length ? `
+    <div class="pg-team-head" style="margin-top:6px">${team2_short || 'Team 2'}</div>
+    <div class="player-grid">${cards(team2_players)}</div>` : '';
+  document.getElementById('player-grid-content').innerHTML = t1html + t2html;
+}
+
+function _updateSaveBtn() {
+  const stA = picksState.amitabh, stS = picksState.shivam;
+  const ok = stA.players.length===5 && stA.captain &&
+             stS.players.length===5 && stS.captain;
+  document.getElementById('btn-save-picks').disabled = !ok;
+}
+
+async function openAdminPicks(matchId, matchName) {
+  currentMatchId = matchId;
+  picksUseFallback = false;
+  picksPlayerData = null;
+  picksState = { amitabh: { players: [], captain: '' }, shivam: { players: [], captain: '' } };
+  activePickTab = 'amitabh';
+
+  document.getElementById('admin-match-name').textContent = matchName;
+  document.getElementById('admin-match-sub').textContent = 'Fetching players from ESPN…';
+  document.getElementById('btn-goto-scores').style.display = 'none';
+  document.getElementById('btn-save-picks').disabled = true;
+
+  // Reset tab buttons and summary
+  switchPickTab('amitabh');
+  _renderSummary();
+
+  // Show loading, hide grid+fallback
+  document.getElementById('picks-loading').style.display = 'block';
+  document.getElementById('player-grid-content').style.display = 'none';
+  document.getElementById('picks-fallback').style.display = 'none';
+
+  // Clear fallback inputs
+  ['a','s'].forEach(p => {
+    [1,2,3,4,5].forEach(i => { const el=document.getElementById(`${p}-p${i}`); if(el) el.value=''; });
+    const sel=document.getElementById(`${p}-cap`); if(sel) sel.innerHTML='<option value="">— select —</option>';
+  });
+
   document.getElementById('selector-overlay').classList.add('open');
   goToStep('step-admin');
 
-  // Load existing selections
+  // Load existing selections first (works in background)
+  let existingSel = null;
   try {
     const selRes = await fetch(API + '/api/selections/' + matchId);
     const sel = await selRes.json();
     if (sel.exists) {
-      const fill = (prefix, players, cap) => {
-        (players || []).forEach((n, i) => {
-          if (i < 5) document.getElementById(`${prefix}-p${i+1}`).value = n;
-        });
-        updateCaptainOptions(prefix);
-        if (cap) document.getElementById(`${prefix}-cap`).value = cap;
-      };
-      fill('a', sel.amitabh_players, sel.amitabh_captain);
-      fill('s', sel.shivam_players,  sel.shivam_captain);
+      existingSel = sel;
+      picksState.amitabh.players  = sel.amitabh_players || [];
+      picksState.amitabh.captain  = sel.amitabh_captain || '';
+      picksState.shivam.players   = sel.shivam_players  || [];
+      picksState.shivam.captain   = sel.shivam_captain  || '';
       document.getElementById('btn-goto-scores').style.display = '';
+      _renderSummary();
+      _updateSaveBtn();
     }
   } catch(e) {}
 
-  // For upcoming/live matches: fetch players from all 3 Cricbuzz endpoints as datalist suggestions
-  if (fetchPlayers) {
-    document.getElementById('admin-match-sub').textContent = 'Loading player suggestions…';
-    try {
-      const pd = await fetch(API + '/api/match/' + matchId + '/players').then(r => r.json());
-      const all = (pd.players || []).filter(Boolean);
-      if (all.length) {
-        document.getElementById('players-list').innerHTML = all.map(n => `<option value="${n}">`).join('');
-        document.getElementById('admin-match-sub').textContent = `${all.length} players loaded · type to autocomplete`;
-      } else {
-        document.getElementById('admin-match-sub').textContent = 'No player data yet · type names manually';
-      }
-    } catch(e) {
-      document.getElementById('admin-match-sub').textContent = 'Could not fetch players · type names manually';
+  // Fetch players from ESPN
+  try {
+    const pd = await fetch(API + '/api/match/' + matchId + '/players').then(r => r.json());
+    const allPlayers = (pd.players || []);
+    if (allPlayers.length) {
+      // team1_players/team2_players may be [{name,role}] objects or plain strings
+      const toNames = arr => (arr||[]).map(p => (typeof p==='string' ? p : p.name)).filter(Boolean);
+      picksPlayerData = {
+        team1_players: toNames(pd.team1_players),
+        team1_short:   pd.team1_short || '',
+        team2_players: toNames(pd.team2_players),
+        team2_short:   pd.team2_short || '',
+      };
+      document.getElementById('picks-loading').style.display = 'none';
+      document.getElementById('player-grid-content').style.display = 'block';
+      document.getElementById('admin-match-sub').textContent =
+        `${allPlayers.length} players · tap to pick, tap again for captain`;
+      _renderGridContent();
+    } else {
+      throw new Error('no players');
+    }
+  } catch(e) {
+    // Fall back to text inputs
+    picksUseFallback = true;
+    document.getElementById('picks-loading').style.display = 'none';
+    document.getElementById('picks-fallback').style.display = 'block';
+    document.getElementById('admin-match-sub').textContent = 'ESPN unavailable · enter names manually';
+    // Pre-fill fallback inputs from existing selections
+    if (existingSel) {
+      const fill = (prefix, players, cap) => {
+        (players||[]).forEach((n,i) => { const el=document.getElementById(`${prefix}-p${i+1}`); if(el) el.value=n; });
+        _fallbackUpdateCap(prefix);
+        const sel=document.getElementById(`${prefix}-cap`); if(sel&&cap) sel.value=cap;
+      };
+      fill('a', existingSel.amitabh_players, existingSel.amitabh_captain);
+      fill('s', existingSel.shivam_players,  existingSel.shivam_captain);
+      document.getElementById('btn-save-picks').disabled = false;
     }
   }
 }
 
 async function saveAdminPicks() {
-  const {amitabh, shivam, aCap, sCap} = getPicksFromForm();
-  if (amitabh.length !== 5) { showToast('Enter all 5 players for Amitabh'); return; }
-  if (shivam.length  !== 5) { showToast('Enter all 5 players for Shivam');  return; }
-  if (!aCap) { showToast('Select Amitabh captain'); return; }
-  if (!sCap) { showToast('Select Shivam captain');  return; }
+  let amitabh, shivam, aCap, sCap;
+
+  if (picksUseFallback) {
+    // Read from text inputs
+    const get = p => [1,2,3,4,5].map(i => document.getElementById(`${p}-p${i}`).value.trim()).filter(Boolean);
+    amitabh = get('a'); shivam = get('s');
+    aCap = document.getElementById('a-cap').value;
+    sCap = document.getElementById('s-cap').value;
+  } else {
+    amitabh = picksState.amitabh.players;
+    shivam  = picksState.shivam.players;
+    aCap    = picksState.amitabh.captain;
+    sCap    = picksState.shivam.captain;
+  }
+
+  if (amitabh.length !== 5) { showToast('Select 5 players for Amitabh'); return; }
+  if (shivam.length  !== 5) { showToast('Select 5 players for Shivam');  return; }
+  if (!aCap) { showToast('Tap Amitabh captain twice to set captain'); return; }
+  if (!sCap) { showToast('Tap Shivam captain twice to set captain');  return; }
 
   const btn = document.getElementById('btn-save-picks');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const res = await fetch(API + '/api/select', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        match_id: currentMatchId,
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ match_id: currentMatchId,
         amitabh_players: amitabh, amitabh_captain: aCap,
-        shivam_players:  shivam,  shivam_captain:  sCap,
-      }),
+        shivam_players:  shivam,  shivam_captain:  sCap }),
     });
     const data = await res.json();
-    if (data.error) { showToast(data.error); btn.disabled = false; btn.textContent = 'Save Picks'; return; }
+    if (data.error) { showToast(data.error); btn.disabled=false; btn.textContent='Save Picks'; return; }
     showToast('Picks saved!', 'success');
     document.getElementById('btn-goto-scores').style.display = '';
     btn.disabled = false; btn.textContent = 'Save Picks';
@@ -756,8 +960,19 @@ function goToScoresStep() {
   // Restore buttons (may have been hidden by viewLockedMatch)
   document.getElementById('btn-calc-scores').style.display = '';
   document.getElementById('btn-score-edit-picks').style.display = '';
-  document.getElementById('score-status-text').textContent = 'Click Calculate to fetch scores from Cricbuzz';
-  const {amitabh, shivam, aCap, sCap} = getPicksFromForm();
+  document.getElementById('score-status-text').textContent = 'Click Calculate to fetch scores';
+
+  let amitabh, shivam, aCap, sCap;
+  if (picksUseFallback) {
+    const get = p => [1,2,3,4,5].map(i => document.getElementById(`${p}-p${i}`).value.trim()).filter(Boolean);
+    amitabh = get('a'); shivam = get('s');
+    aCap = document.getElementById('a-cap').value;
+    sCap = document.getElementById('s-cap').value;
+  } else {
+    amitabh = picksState.amitabh.players; aCap = picksState.amitabh.captain;
+    shivam  = picksState.shivam.players;  sCap = picksState.shivam.captain;
+  }
+
   document.getElementById('score-result-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <div class="admin-picks-box">
@@ -765,7 +980,7 @@ function goToScoresStep() {
         ${amitabh.map(p => `
           <div class="admin-pick-row">
             <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
-            ${p === aCap ? '<span class="cap">C</span>' : ''}
+            ${p===aCap ? '<span class="cap">C</span>' : ''}
           </div>`).join('')}
       </div>
       <div class="admin-picks-box">
@@ -773,7 +988,7 @@ function goToScoresStep() {
         ${shivam.map(p => `
           <div class="admin-pick-row">
             <span style="flex:1;font-size:11px;color:var(--text)">${p}</span>
-            ${p === sCap ? '<span class="cap">C</span>' : ''}
+            ${p===sCap ? '<span class="cap">C</span>' : ''}
           </div>`).join('')}
       </div>
     </div>`;
@@ -783,7 +998,7 @@ function goToScoresStep() {
 async function calculateScores() {
   const btn = document.getElementById('btn-calc-scores');
   btn.disabled = true;
-  btn.textContent = '⏳ Fetching from Cricbuzz…';
+  btn.textContent = '⏳ Fetching from ESPN…';
   try {
     const res = await fetch(API + '/api/score/' + currentMatchId);
     const data = await res.json();
@@ -794,7 +1009,7 @@ async function calculateScores() {
       showToast(data.error);
       return;
     }
-    document.getElementById('score-status-text').textContent = data.status || 'Scored from Cricbuzz';
+    document.getElementById('score-status-text').textContent = data.status || 'Scored from ESPN';
     const aWin = data.amitabh.total >= data.shivam.total;
 
     document.getElementById('score-result-body').innerHTML = `
@@ -836,7 +1051,7 @@ async function calculateScores() {
     showToast((aWin ? 'Amitabh' : 'Shivam') + ' wins this match!', 'success');
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = '⚡ Calculate Scores from Cricbuzz';
+    btn.textContent = '⚡ Calculate Scores';
     showToast('Error calculating scores. Is the API running?');
   }
 }
