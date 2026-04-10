@@ -460,9 +460,36 @@ def get_players(match_id):
         'match_id': match_id,
     })
 
+def _get_impact_subs(data):
+    """
+    Parse ESPN notes for available impact substitutes per team.
+    Notes contain lines like:
+      "Chennai Super Kings Impact Player Subs: Matthew Short, Jamie Overton and Rahul Chahar"
+    Returns {team_display_name: [player_name, ...]}
+    """
+    result = {}
+    for note in data.get('notes', []):
+        if note.get('type') != 'matchnote':
+            continue
+        text = note.get('text', '')
+        if 'Impact Player Subs:' not in text:
+            continue
+        parts = text.split('Impact Player Subs:', 1)
+        if len(parts) != 2:
+            continue
+        team_name = parts[0].strip()
+        players_str = parts[1].strip().replace(' and ', ', ')
+        names = [n.strip() for n in players_str.split(',') if n.strip()]
+        if team_name not in result:
+            result[team_name] = []
+        for name in names:
+            if name not in result[team_name]:
+                result[team_name].append(name)
+    return result
+
 @app.route('/api/match/<match_id>/players')
 def get_match_players(match_id):
-    """Fetch players from ESPN rosters for this match."""
+    """Fetch players from ESPN rosters for this match, including impact subs."""
     now = time.time()
     cached = _match_players_cache.get(match_id)
     if cached and now - cached['ts'] < CACHE_TTL:
@@ -477,12 +504,32 @@ def get_match_players(match_id):
             'players': [],
         })
 
+    t1_names = list(m['team1_players'])
+    t2_names = list(m['team2_players'])
+
+    # Merge in impact subs from ESPN notes (available subs, not just the one used)
+    impact_subs = _get_impact_subs(data)
+    for team_display, sub_names in impact_subs.items():
+        td = team_display.lower()
+        t1 = m['team1'].lower()
+        t2 = m['team2'].lower()
+        if td in t1 or t1 in td:
+            target = t1_names
+        elif td in t2 or t2 in td:
+            target = t2_names
+        else:
+            continue
+        for name in sub_names:
+            if name not in target:
+                target.append(name)
+
+    all_players = sorted(set(t1_names + t2_names))
     result = {
         'team1': m['team1'], 'team1_short': m['team1_short'],
-        'team1_players': [{'name': n, 'role': ''} for n in m['team1_players']],
+        'team1_players': [{'name': n, 'role': ''} for n in sorted(t1_names)],
         'team2': m['team2'], 'team2_short': m['team2_short'],
-        'team2_players': [{'name': n, 'role': ''} for n in m['team2_players']],
-        'players': m['players'],
+        'team2_players': [{'name': n, 'role': ''} for n in sorted(t2_names)],
+        'players': all_players,
     }
     if result['players']:
         _match_players_cache[match_id] = {'data': result, 'ts': now}

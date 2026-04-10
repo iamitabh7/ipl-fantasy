@@ -923,6 +923,7 @@ async function saveAdminPicks() {
     showToast('Picks saved!', 'success');
     document.getElementById('btn-goto-scores').style.display = '';
     btn.disabled = false; btn.textContent = 'Save Picks';
+    loadFixtures(); // refresh fixture cards (button state + fantasy scores)
     goToScoresStep();
   } catch(e) {
     showToast('Error saving picks.');
@@ -1086,6 +1087,9 @@ async function calculateScores() {
         </div>
       </div>`;
     showToast((aWin ? 'Amitabh' : 'Shivam') + ' wins this match!', 'success');
+    // Refresh home standings and fixture cards in the background
+    loadHome();
+    loadFixtures();
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '⚡ Calculate Scores';

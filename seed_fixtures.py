@@ -92,37 +92,37 @@ FIXTURES = [
      'Royal Challengers Bengaluru', 'RCB', 'Chennai Super Kings', 'CSK',
      2026, 4, 5, 19, 30,
      'M. Chinnaswamy Stadium', 'Bengaluru',
-     'Royal Challengers Bengaluru won by big margin', 'Complete'),
+     'Royal Challengers Bengaluru won by 43 runs', 'Complete'),
 
-    # ── Upcoming ─────────────────────────────────────────────────────────────
     ('149739', 'Match 12',
      'Kolkata Knight Riders', 'KKR', 'Punjab Kings', 'PBKS',
      2026, 4, 6, 19, 30,
      'Eden Gardens', 'Kolkata',
-     '', 'Upcoming'),
+     'Match abandoned - no result', 'Complete'),
 
     ('149750', 'Match 13',
      'Rajasthan Royals', 'RR', 'Mumbai Indians', 'MI',
      2026, 4, 7, 19, 30,
-     'ACA-VDCA Cricket Stadium', 'Guwahati',
-     '', 'Upcoming'),
+     'Barsapara Cricket Stadium', 'Guwahati',
+     'Rajasthan Royals won by 27 runs (DLS)', 'Complete'),
 
     ('149761', 'Match 14',
      'Delhi Capitals', 'DC', 'Gujarat Titans', 'GT',
      2026, 4, 8, 19, 30,
      'Arun Jaitley Stadium', 'Delhi',
-     '', 'Upcoming'),
+     'Gujarat Titans won by 1 run', 'Complete'),
 
     ('149772', 'Match 15',
      'Kolkata Knight Riders', 'KKR', 'Lucknow Super Giants', 'LSG',
      2026, 4, 9, 19, 30,
      'Eden Gardens', 'Kolkata',
-     '', 'Upcoming'),
+     'Lucknow Super Giants won by 3 wickets', 'Complete'),
 
+    # ── Upcoming ─────────────────────────────────────────────────────────────
     ('149783', 'Match 16',
      'Rajasthan Royals', 'RR', 'Royal Challengers Bengaluru', 'RCB',
      2026, 4, 10, 19, 30,
-     'ACA-VDCA Cricket Stadium', 'Guwahati',
+     'Sawai Mansingh Stadium', 'Jaipur',
      '', 'Upcoming'),
 
     ('149794', 'Match 17',
@@ -151,6 +151,16 @@ FIXTURES = [
 ]
 
 LOCKED_IDS = {'149618', '149629', '149640', '149651', '149662', '149673'}
+
+# Cricket scores for completed matches
+# (match_id): (team1_runs, team1_wkts, team1_overs, team2_runs, team2_wkts, team2_overs)
+SCORES = {
+    '149728': ('250', '3',  '20',   '207', '10', '19.4'),  # M11 RCB vs CSK: RCB 250/3, CSK 207 all out
+    '149739': ('25',  '2',  '3.4',  '-',   '-',  '-'),     # M12 KKR vs PBKS: abandoned after KKR 25/2
+    '149750': ('150', '3',  '11',   '123', '9',  '11'),    # M13 RR vs MI: RR 150/3, MI 123/9 (DLS)
+    '149761': ('209', '8',  '20',   '210', '4',  '20'),    # M14 DC vs GT: DC 209/8, GT 210/4
+    '149772': ('181', '4',  '20',   '182', '7',  '20'),    # M15 KKR vs LSG: KKR 181/4, LSG 182/7
+}
 
 conn = sqlite3.connect(DB)
 conn.execute('''CREATE TABLE IF NOT EXISTS fixtures (
@@ -193,9 +203,22 @@ for row in FIXTURES:
         inserted += 1
 
 conn.commit()
+
+# Apply cricket scores for completed matches
+scores_updated = 0
+for mid, (t1r, t1w, t1o, t2r, t2w, t2o) in SCORES.items():
+    conn.execute(
+        '''UPDATE fixtures SET
+               team1_runs=?, team1_wkts=?, team1_overs=?,
+               team2_runs=?, team2_wkts=?, team2_overs=?
+           WHERE match_id=?''',
+        (t1r, t1w, t1o, t2r, t2w, t2o, mid),
+    )
+    scores_updated += 1
+conn.commit()
 conn.close()
 
-print(f'✓ fixtures seeded — {inserted} inserted, {updated} replaced\n')
+print(f'✓ fixtures seeded — {inserted} inserted, {updated} replaced, {scores_updated} scores set\n')
 print(f"  {'ID':<10} {'Match':<10} {'Teams':<22} {'Date & Time':<28} {'State':<10} Result")
 print('  ' + '-' * 105)
 for row in FIXTURES:
