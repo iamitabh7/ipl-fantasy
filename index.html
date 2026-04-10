@@ -574,12 +574,20 @@ async function loadFixtures() {
   const list = document.getElementById('fixtures-list');
   list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
   try {
-    const [fixturesRes, selectionsRes] = await Promise.all([
+    const [fixturesRes, selectionsRes, seasonRes] = await Promise.all([
       fetch(API + '/api/fixtures'),
       fetch(API + '/api/selections'),
+      fetch(API + '/api/season'),
     ]);
-    const matches = await fixturesRes.json();
-    const savedIds = new Set(await selectionsRes.json());
+    const matches   = await fixturesRes.json();
+    const savedIds  = new Set(await selectionsRes.json());
+    const season    = await seasonRes.json();
+    // Build match_id → fantasy scores map from season data
+    const fantasyMap = {};
+    (season.matches || []).forEach(m => {
+      fantasyMap[m.match_id] = { a: m.amitabh_total, s: m.shivam_total };
+    });
+
     list.innerHTML = '';
     if (!matches.length) {
       list.innerHTML = '<p style="color:var(--muted);padding:16px">No fixtures found. Check back soon.</p>';
@@ -589,18 +597,39 @@ async function loadFixtures() {
       const isComplete = m.state === 'Complete';
       const isLive = m.state === 'In Progress' || m.state === 'Live';
       const statusClass = isComplete ? 'complete' : (isLive ? '' : 'upcoming');
+
+      // Cricket match scores row — show if DB has populated runs
       const t1o = formatOvers(m.team1_overs), t2o = formatOvers(m.team2_overs);
-      const scoreHTML = isComplete || isLive ? `
+      const hasScores = m.team1_runs && m.team1_runs !== '-';
+      const cricScoreHTML = hasScores ? `
         <div class="fixture-scores">
           <div class="fscore">
             <div class="fscore-team">${m.team1_short}</div>
-            <div class="fscore-runs">${m.team1_runs !== '-' ? m.team1_runs + '/' + m.team1_wkts + ' (' + t1o + ')' : '—'}</div>
+            <div class="fscore-runs">${m.team1_runs}/${m.team1_wkts} (${t1o})</div>
           </div>
           <div class="fscore">
             <div class="fscore-team">${m.team2_short}</div>
             <div class="fscore-runs">${m.team2_runs !== '-' ? m.team2_runs + '/' + m.team2_wkts + ' (' + t2o + ')' : '—'}</div>
           </div>
         </div>` : '';
+
+      // Match result text (already has "Punjab Kings won by 5 wkts" etc.)
+      const resultText = isComplete && m.status ? `
+        <div style="font-size:11px;color:var(--muted);padding:6px 0 2px;line-height:1.4">${m.status}</div>` : '';
+
+      // Fantasy scores row for completed matches with saved picks
+      const fx = fantasyMap[m.match_id];
+      const fantasyHTML = fx ? (() => {
+        const aWin = fx.a > fx.s;
+        return `<div style="display:flex;gap:6px;margin-top:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;align-items:center">
+          <span style="font-size:10px;color:var(--muted);flex:0 0 auto">Fantasy</span>
+          <span style="flex:1;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:${aWin?'var(--amber)':'var(--muted)'}">A ${fx.a}</span>
+          <span style="font-size:10px;color:var(--hint)">vs</span>
+          <span style="flex:1;text-align:right;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:${!aWin?'var(--blue)':'var(--muted)'}">S ${fx.s}</span>
+          <span style="font-size:10px;color:${aWin?'var(--amber)':'var(--blue)'};margin-left:4px">${aWin?'A wins':'S wins'}</span>
+        </div>`;
+      })() : '';
+
       const label = `'${m.team1_short} vs ${m.team2_short}'`;
       let actionBtn;
       if (m.locked) {
@@ -621,9 +650,9 @@ async function loadFixtures() {
             <div class="fixture-teams">${m.team1_short} vs ${m.team2_short}</div>
             <div class="fixture-desc">${m.desc}${m.city ? ' · ' + m.city : ''}${m.start_ist ? ' · ' + m.start_ist : ''}</div>
           </div>
-          <div class="fixture-status ${statusClass}">${isLive ? '🔴 Live' : isComplete ? (m.status || 'Complete') : 'Upcoming'}</div>
+          <div class="fixture-status ${statusClass}">${isLive ? '🔴 Live' : isComplete ? 'Complete' : 'Upcoming'}</div>
         </div>
-        ${scoreHTML}
+        ${resultText}${cricScoreHTML}${fantasyHTML}
         ${actionBtn}
       </div>`;
     });
@@ -667,6 +696,12 @@ function _fallbackCheckSave() {
   document.getElementById('btn-save-picks').disabled = !ok;
 }
 _wireFallbackListeners();
+
+// Single delegated click handler for the player grid — avoids inline onclick quoting issues
+document.getElementById('player-grid-content').addEventListener('click', function(e) {
+  const card = e.target.closest('.pg-card');
+  if (card && card.dataset.player) togglePlayerPick(card.dataset.player);
+});
 
 // ── Tap-to-select helpers ─────────────────────────────
 function switchPickTab(user) {
@@ -741,7 +776,9 @@ function _renderGridContent() {
       if (isCap)        badge = '<div class="pg-badge-wrap"><div class="pg-cap-chip">C</div></div>';
       else if (isMine)  badge = '<div class="pg-badge-wrap"><div class="pg-sel-dot"></div></div>';
       else if (isOther) badge = '<div class="pg-badge-wrap"><div class="pg-other-dot"></div></div>';
-      return `<div class="${cls}" onclick="togglePlayerPick(${JSON.stringify(name)})">
+      // Use data-player attribute — inline onclick with JSON.stringify breaks on names with spaces
+      const safeName = name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      return `<div class="${cls}" data-player="${safeName}">
         <div class="pg-name">${name}</div>${badge}
       </div>`;
     }).join('');
