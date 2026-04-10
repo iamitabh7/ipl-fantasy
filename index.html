@@ -596,6 +596,7 @@ async function loadFixtures() {
     matches.forEach(m => {
       const isComplete = m.state === 'Complete';
       const isLive = m.state === 'In Progress' || m.state === 'Live';
+      const isAbandoned = isComplete && /abandon|no result|washout/i.test(m.status || '');
       const statusClass = isComplete ? 'complete' : (isLive ? '' : 'upcoming');
 
       // Cricket match scores row — show if DB has populated runs
@@ -632,7 +633,9 @@ async function loadFixtures() {
 
       const label = `'${m.team1_short} vs ${m.team2_short}'`;
       let actionBtn;
-      if (m.locked) {
+      if (isAbandoned) {
+        actionBtn = ''; // No picks button for abandoned matches
+      } else if (m.locked) {
         actionBtn = `<button class="select-btn view-btn" onclick="viewLockedMatch('${m.match_id}', ${label})">View Result →</button>`;
       } else if (isComplete) {
         actionBtn = savedIds.has(m.match_id)
@@ -643,6 +646,9 @@ async function loadFixtures() {
           ? `<button class="select-btn view-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Edit Picks →</button>`
           : `<button class="select-btn" onclick="openAdminPicks('${m.match_id}', ${label})">Enter Picks →</button>`;
       }
+      const statusBadge = isAbandoned ? 'No Result' : isLive ? '🔴 Live' : isComplete ? 'Complete' : 'Upcoming';
+      const statusBadgeClass = isAbandoned ? 'fixture-status' : `fixture-status ${statusClass}`;
+      const abandonedStyle = isAbandoned ? 'color:var(--muted)' : '';
       list.innerHTML += `
       <div class="fixture-card ${isComplete ? '' : 'upcoming'}">
         <div class="fixture-top">
@@ -650,7 +656,7 @@ async function loadFixtures() {
             <div class="fixture-teams">${m.team1_short} vs ${m.team2_short}</div>
             <div class="fixture-desc">${m.desc}${m.city ? ' · ' + m.city : ''}${m.start_ist ? ' · ' + m.start_ist : ''}</div>
           </div>
-          <div class="fixture-status ${statusClass}">${isLive ? '🔴 Live' : isComplete ? 'Complete' : 'Upcoming'}</div>
+          <div class="${statusBadgeClass}" style="${abandonedStyle}">${statusBadge}</div>
         </div>
         ${resultText}${cricScoreHTML}${fantasyHTML}
         ${actionBtn}

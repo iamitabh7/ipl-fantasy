@@ -54,6 +54,14 @@ KNOWN_MATCH_LABELS = {
     '149717': 'Match 10 — SRH vs LSG',
     '149728': 'Match 11 — RCB vs CSK',
     '149739': 'Match 12 — KKR vs PBKS',
+    '149750': 'Match 13 — RR vs MI',
+    '149761': 'Match 14 — DC vs GT',
+    '149772': 'Match 15 — KKR vs LSG',
+    '149783': 'Match 16 — RR vs RCB',
+    '149794': 'Match 17 — PBKS vs SRH',
+    '149805': 'Match 18 — CSK vs DC',
+    '149816': 'Match 19 — LSG vs GT',
+    '149827': 'Match 20 — MI vs RCB',
 }
 
 # Matches 1-6: hardcoded in /api/season — picks and scores cannot be changed
@@ -719,9 +727,23 @@ def score_match(match_id):
     """Calculate fantasy points for a saved selection using ESPN scorecard."""
     if match_id in LOCKED_MATCH_IDS:
         return jsonify({'error': 'This match is locked — use /api/season for historical scores'}), 403
+    # Check if match was abandoned
+    conn = get_db()
+    fix_row = conn.execute('SELECT status FROM fixtures WHERE match_id = ?', (match_id,)).fetchone()
+    if fix_row and re.search(r'abandon|no result|washout', fix_row['status'] or '', re.I):
+        conn.close()
+        _season_cache['data'] = None
+        _season_cache['ts'] = 0
+        return jsonify({
+            'match_id': match_id,
+            'status': fix_row['status'],
+            'is_abandoned': True,
+            'amitabh': {'total': 0, 'players': [], 'captain': ''},
+            'shivam':  {'total': 0, 'players': [], 'captain': ''},
+            'leader': 'draw', 'gap': 0,
+        })
     espn_data = espn_get(match_id)
     match_stats = _parse_espn_match(espn_data)
-    conn = get_db()
     row = conn.execute('SELECT * FROM selections WHERE match_id = ?', (match_id,)).fetchone()
     conn.close()
     if not row:
@@ -897,12 +919,23 @@ def get_season():
 
     # Add any new matches from DB
     conn = get_db()
-    rows = conn.execute('SELECT * FROM selections').fetchall()
+    rows = conn.execute('SELECT s.*, f.status AS fixture_status FROM selections s LEFT JOIN fixtures f ON s.match_id = f.match_id').fetchall()
     conn.close()
     past_ids = [m['match_id'] for m in past_matches]
     for row in rows:
         mid = row['match_id']
         if mid in past_ids:
+            continue
+        # Abandoned / no-result matches score 0-0 and don't count for W/L
+        fixture_status = row['fixture_status'] or ''
+        if re.search(r'abandon|no result|washout', fixture_status, re.I):
+            past_matches.append({
+                'match_id': mid,
+                'desc': KNOWN_MATCH_LABELS.get(mid, 'No Result'),
+                'amitabh_total': 0, 'shivam_total': 0,
+                'amitabh_players': [], 'shivam_players': [],
+                'is_abandoned': True,
+            })
             continue
         espn_data = espn_get(mid)
         match_stats = _parse_espn_match(espn_data)

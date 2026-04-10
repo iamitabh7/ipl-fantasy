@@ -4,6 +4,10 @@ seed_fixtures.py
 One-time script to populate the fixtures table with the correct IPL 2026 schedule.
 Run from the project root: python3 seed_fixtures.py
 Re-running is safe — uses INSERT OR REPLACE to overwrite stale data.
+
+WARNING: This script ONLY modifies the `fixtures` table.
+It NEVER reads from, writes to, or deletes from the `selections` table.
+DO NOT add any code here that touches selections — picks data must never be wiped.
 """
 import sqlite3
 from datetime import datetime, timezone, timedelta
@@ -123,7 +127,7 @@ FIXTURES = [
      'Rajasthan Royals', 'RR', 'Royal Challengers Bengaluru', 'RCB',
      2026, 4, 10, 19, 30,
      'Sawai Mansingh Stadium', 'Jaipur',
-     '', 'Upcoming'),
+     'Royal Challengers Bengaluru won by 11 runs', 'Complete'),
 
     ('149794', 'Match 17',
      'Punjab Kings', 'PBKS', 'Sunrisers Hyderabad', 'SRH',
@@ -154,12 +158,24 @@ LOCKED_IDS = {'149618', '149629', '149640', '149651', '149662', '149673'}
 
 # Cricket scores for completed matches
 # (match_id): (team1_runs, team1_wkts, team1_overs, team2_runs, team2_wkts, team2_overs)
+# team1/team2 match the FIXTURES order above (home team first)
 SCORES = {
-    '149728': ('250', '3',  '20',   '207', '10', '19.4'),  # M11 RCB vs CSK: RCB 250/3, CSK 207 all out
-    '149739': ('25',  '2',  '3.4',  '-',   '-',  '-'),     # M12 KKR vs PBKS: abandoned after KKR 25/2
-    '149750': ('150', '3',  '11',   '123', '9',  '11'),    # M13 RR vs MI: RR 150/3, MI 123/9 (DLS)
-    '149761': ('209', '8',  '20',   '210', '4',  '20'),    # M14 DC vs GT: DC 209/8, GT 210/4
-    '149772': ('181', '4',  '20',   '182', '7',  '20'),    # M15 KKR vs LSG: KKR 181/4, LSG 182/7
+    '149618': ('203', '4',  '15.4', '201', '9',  '15.4'), # M1  RCB vs SRH
+    '149629': ('224', '4',  '19.1', '220', '4',  '19.1'), # M2  MI vs KKR
+    '149640': ('128', '2',  '12.1', '127', '-',  '12.1'), # M3  RR vs CSK (DLS)
+    '149651': ('165', '7',  '19.1', '162', '6',  '19.1'), # M4  GT vs PBKS
+    '149662': ('141', '9',  '17.1', '145', '4',  '17.1'), # M5  LSG vs DC
+    '149673': ('141', '10', '20',   '226', '8',  '20'),   # M6  KKR vs SRH (KKR all out)
+    '149684': ('209', '5',  '18.4', '210', '5',  '18.4'), # M7  CSK vs PBKS
+    '149695': ('164', '4',  '18.1', '162', '6',  '20'),   # M8  DC vs MI
+    '149706': ('204', '8',  '20',   '210', '6',  '20'),   # M9  GT vs RR
+    '149717': ('156', '9',  '20',   '160', '5',  '19.5'), # M10 SRH vs LSG
+    '149728': ('250', '3',  '20',   '207', '10', '19.4'), # M11 RCB vs CSK
+    '149739': ('25',  '2',  '3.4',  '-',   '-',  '-'),    # M12 KKR vs PBKS (abandoned)
+    '149750': ('150', '3',  '11',   '123', '9',  '11'),   # M13 RR vs MI (DLS)
+    '149761': ('209', '8',  '20',   '210', '4',  '20'),   # M14 DC vs GT
+    '149772': ('181', '4',  '20',   '182', '7',  '20'),   # M15 KKR vs LSG
+    '149783': ('202', '4',  '18',   '201', '8',  '20'),   # M16 RR vs RCB
 }
 
 conn = sqlite3.connect(DB)
