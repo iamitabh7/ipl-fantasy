@@ -7,7 +7,6 @@ import sqlite3
 import time
 import re
 from datetime import datetime, timezone, timedelta
-from concurrent.futures import ThreadPoolExecutor
 
 # Disk cache directory — persists across restarts and survives in-memory eviction
 os.makedirs('cache', exist_ok=True)
@@ -15,14 +14,46 @@ os.makedirs('cache', exist_ok=True)
 app = Flask(__name__)
 CORS(app)
 
-API_KEY = 'af7e0d6342mshf4bafbb8b9f34a4p142027jsne77b07afae99'
-API_HOST = 'cricbuzz-cricket.p.rapidapi.com'
-IPL_SERIES_ID = 9241
+ESPN_LEAGUE_ID = '8048'
 IST = timezone(timedelta(hours=5, minutes=30))
+
+# Mapping: Cricbuzz match_id → ESPN match_id
+ESPN_MATCH_IDS = {
+    '149618': '1527674',  # Match 1  RCB vs SRH
+    '149629': '1527675',  # Match 2  MI vs KKR
+    '149640': '1527676',  # Match 3  RR vs CSK
+    '149651': '1527677',  # Match 4  GT vs PBKS
+    '149662': '1527678',  # Match 5  LSG vs DC
+    '149673': '1527679',  # Match 6  KKR vs SRH
+    '149684': '1527680',  # Match 7  CSK vs PBKS
+    '149695': '1527681',  # Match 8  DC vs MI
+    '149706': '1527682',  # Match 9  GT vs RR
+    '149717': '1527683',  # Match 10 SRH vs LSG
+    '149728': '1527684',  # Match 11 RCB vs CSK
+    '149739': '1527685',  # Match 12 KKR vs PBKS
+    '149750': '1527686',  # Match 13 RR vs MI
+    '149761': '1527687',  # Match 14 DC vs GT
+    '149772': '1527688',  # Match 15 KKR vs LSG
+    '149783': '1527689',  # Match 16 RR vs RCB
+    '149794': '1527690',  # Match 17 PBKS vs SRH
+    '149805': '1527691',  # Match 18 CSK vs DC
+    '149816': '1527692',  # Match 19 LSG vs GT
+    '149827': '1527693',  # Match 20 MI vs RCB
+}
+
+ESPN_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'application/json',
+}
 
 # Labels for matches tracked by ID (used in season history for DB-sourced matches)
 KNOWN_MATCH_LABELS = {
     '149684': 'Match 7 — CSK vs PBKS',
+    '149695': 'Match 8 — DC vs MI',
+    '149706': 'Match 9 — GT vs RR',
+    '149717': 'Match 10 — SRH vs LSG',
+    '149728': 'Match 11 — RCB vs CSK',
+    '149739': 'Match 12 — KKR vs PBKS',
 }
 
 # Matches 1-6: hardcoded in /api/season — picks and scores cannot be changed
@@ -77,8 +108,8 @@ def _ensure_db():
         (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
         VALUES (?, ?, ?, ?, ?, ?)''', (
         '149684',
-        json.dumps(['Cooper', 'Shivam Dube', 'Priyansh Arya', 'Prabhsimran Singh', 'Kartik Sharma']),
-        'Cooper',
+        json.dumps(['Cooper Connolly', 'Shivam Dube', 'Priyansh Arya', 'Prabhsimran Singh', 'Kartik Sharma']),
+        'Cooper Connolly',
         json.dumps(['Sanju Samson', 'Shreyas Iyer', 'Marco Jansen', 'Yuzvendra Chahal', 'Marcus Stoinis']),
         'Sanju Samson',
         1743696000,
@@ -168,36 +199,146 @@ def _disk_read_stale(api_path):
 def get_players_cached(match_id):
     if match_id in _player_cache:
         return _player_cache[match_id]
-    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
-    result = _parse_players_from_scorecard(data)
+    data = espn_get(match_id)
+    m = _parse_espn_match(data)
+    if not m:
+        return {'players': [], 'team1': '', 'team1_short': '', 'team1_players': [],
+                'team2': '', 'team2_short': '', 'team2_players': []}
+    result = {
+        'players': m['players'],
+        'team1': m['team1'], 'team1_short': m['team1_short'], 'team1_players': m['team1_players'],
+        'team2': m['team2'], 'team2_short': m['team2_short'], 'team2_players': m['team2_players'],
+    }
     if result['players']:
         _player_cache[match_id] = result
     return result
 
-def _parse_players_from_scorecard(data):
+def _espn_stats_flat(stats_obj):
+    """Flatten ESPN statistics categories into a simple {name: value} dict."""
+    result = {}
+    for cat in stats_obj.get('categories', []):
+        for s in cat.get('stats', []):
+            v = s.get('value', 0)
+            try:
+                result[s['name']] = float(v) if isinstance(v, str) and '.' in v else int(v) if v != '' else 0
+            except (ValueError, TypeError):
+                result[s['name']] = 0
+    return result
+
+def _parse_espn_match(data):
     """
-    Extract players grouped by team from an hscard response.
-    The API returns batteamname/batteamsname directly on each innings object.
-    Inn[0] batsmen = team1, inn[0] bowlers = team2.
-    Inn[1] batsmen = team2, inn[1] bowlers = team1.
+    Parse ESPN API summary response into normalised per-player stats.
+    Returns dict with batting/bowling/fielding stats and team info, or None if no data.
     """
-    scorecard = data.get('scorecard', [])
-    t1, t2 = set(), set()
-    if len(scorecard) >= 1:
-        for b in scorecard[0].get('batsman', []): t1.add(b['name'])
-        for b in scorecard[0].get('bowler', []):  t2.add(b['name'])
-    if len(scorecard) >= 2:
-        for b in scorecard[1].get('batsman', []): t2.add(b['name'])
-        for b in scorecard[1].get('bowler', []):  t1.add(b['name'])
-    team1_name  = scorecard[0].get('batteamname',  '') if scorecard else ''
-    team1_short = scorecard[0].get('batteamsname', '') if scorecard else ''
-    team2_name  = scorecard[1].get('batteamname',  '') if len(scorecard) > 1 else ''
-    team2_short = scorecard[1].get('batteamsname', '') if len(scorecard) > 1 else ''
+    if not data or not data.get('rosters'):
+        return None
+
+    batting  = {}   # player_name → {runs, balls, fours, sixes}
+    bowling  = {}   # player_name → {wickets, overs, conceded, maidens}
+    fielding = {}   # player_name → {catches, stumpings, runouts}
+    id_to_name = {}
+
+    for roster_entry in data.get('rosters', []):
+        for player in roster_entry.get('roster', []):
+            athlete = player.get('athlete', {})
+            name = athlete.get('displayName', '')
+            athlete_id = athlete.get('id', '')
+            if not name:
+                continue
+
+            id_to_name[athlete_id] = name
+            batting.setdefault(name,  {'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0})
+            bowling.setdefault(name,  {'wickets': 0, 'overs': 0.0, 'conceded': 0, 'maidens': 0})
+            fielding.setdefault(name, {'catches': 0, 'stumpings': 0, 'runouts': 0})
+
+            for period in player.get('linescores', []):
+                stats = _espn_stats_flat(period.get('statistics', {}))
+
+                if stats.get('batted', 0):
+                    batting[name]['runs']  += int(stats.get('runs', 0))
+                    batting[name]['balls'] += int(stats.get('ballsFaced', 0))
+                    batting[name]['fours'] += int(stats.get('fours', 0))
+                    batting[name]['sixes'] += int(stats.get('sixes', 0))
+
+                if stats.get('balls', 0) or stats.get('inningsBowled', 0):
+                    bowling[name]['wickets']  += int(stats.get('wickets', 0))
+                    bowling[name]['overs']    += float(stats.get('overs', 0))
+                    bowling[name]['conceded'] += int(stats.get('conceded', 0))
+                    bowling[name]['maidens']  += int(stats.get('maidens', 0))
+
+                # Fielding stats apply regardless of whether player bowled
+                caught = int(stats.get('caughtFielder', 0)) + int(stats.get('caughtKeeper', 0))
+                fielding[name]['catches']   += caught
+                fielding[name]['stumpings'] += int(stats.get('stumped', 0))
+
+    # Parse run-outs: scan every batter's dismissal details
+    for roster_entry in data.get('rosters', []):
+        for player in roster_entry.get('roster', []):
+            for period in player.get('linescores', []):
+                bat_detail = period.get('statistics', {}).get('batting', {})
+                out_details = bat_detail.get('outDetails', {})
+                if out_details.get('dismissalCard') == 'ro':
+                    for fielder_info in out_details.get('fielders', []):
+                        fid = fielder_info.get('athlete', {}).get('id', '')
+                        fname = id_to_name.get(fid, '')
+                        if fname and fname in fielding:
+                            fielding[fname]['runouts'] += 1
+
+    # Extract team info
+    team1 = team2 = team1_short = team2_short = ''
+    t1_players: list = []
+    t2_players: list = []
+    rosters = data.get('rosters', [])
+    if rosters:
+        t = rosters[0].get('team', {})
+        team1       = t.get('displayName', '')
+        team1_short = t.get('abbreviation', '')
+        t1_players  = [p.get('athlete', {}).get('displayName', '') for p in rosters[0].get('roster', [])]
+    if len(rosters) > 1:
+        t = rosters[1].get('team', {})
+        team2       = t.get('displayName', '')
+        team2_short = t.get('abbreviation', '')
+        t2_players  = [p.get('athlete', {}).get('displayName', '') for p in rosters[1].get('roster', [])]
+
+    # Extract match status
+    status = ''
+    is_complete = False
+    header = data.get('header', {})
+    comps = header.get('competitions', [])
+    if comps:
+        st = comps[0].get('status', {}).get('type', {})
+        status      = st.get('detail', '')
+        is_complete = st.get('state', '') == 'post'
+
     return {
-        'players': sorted(t1 | t2),
-        'team1': team1_name, 'team1_short': team1_short, 'team1_players': sorted(t1),
-        'team2': team2_name, 'team2_short': team2_short, 'team2_players': sorted(t2),
+        'batting':  batting,
+        'bowling':  bowling,
+        'fielding': fielding,
+        'team1': team1, 'team1_short': team1_short, 'team1_players': sorted(p for p in t1_players if p),
+        'team2': team2, 'team2_short': team2_short, 'team2_players': sorted(p for p in t2_players if p),
+        'players':     sorted(batting.keys()),
+        'status':      status,
+        'is_complete': is_complete,
     }
+
+def _resolve_name(pick_name, espn_names):
+    """
+    Map a stored pick name to the ESPN display name.
+    Tries: exact → substring (pick in espn) → last-name → first-name.
+    Returns the ESPN name if found, otherwise the original pick_name.
+    """
+    if pick_name in espn_names:
+        return pick_name
+    pick_lower = pick_name.lower()
+    # pick is a substring of an ESPN name (e.g. 'Cooper' → 'Cooper Connolly')
+    matches = [n for n in espn_names if pick_lower in n.lower()]
+    if len(matches) == 1:
+        return matches[0]
+    # ESPN name is a substring of pick (e.g. 'Prabhsimran' in 'Prabhsimran Singh')
+    matches = [n for n in espn_names if n.lower() in pick_lower]
+    if len(matches) == 1:
+        return matches[0]
+    return pick_name
 
 def draft_turn(first, n):
     second = 'shivam' if first == 'amitabh' else 'amitabh'
@@ -205,11 +346,14 @@ def draft_turn(first, n):
 
 def get_toss_winner_name(match_id):
     """Return the team name that won the toss, or '' if not yet known."""
-    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
-    toss = (data.get('tossResults')
-            or data.get('matchHeader', {}).get('tossResults')
-            or {})
-    return toss.get('tossWinnerName', '')
+    data = espn_get(match_id)
+    for note in data.get('notes', []):
+        if note.get('type') == 'toss':
+            # e.g. "Punjab Kings , elected to field first"
+            text = note.get('text', '')
+            if text:
+                return text.split(',')[0].strip()
+    return ''
 
 def build_draft_response(row, picks):
     first = row['first_pick']
@@ -226,53 +370,43 @@ def build_draft_response(row, picks):
         **last,
     }
 
-def cricbuzz_get(path):
-    # 1. Fresh disk cache?
-    cached = _disk_read(path)
+def espn_get(match_id):
+    """Fetch ESPN match summary using Cricbuzz match_id as the key."""
+    espn_id = ESPN_MATCH_IDS.get(str(match_id))
+    if not espn_id:
+        return {}
+
+    api_path = f'espn_{espn_id}'
+    cached = _disk_read(api_path)
     if cached is not None:
         return cached
 
-    url = f'https://{API_HOST}{path}'
-    req = urllib.request.Request(url, headers={
-        'x-rapidapi-host': API_HOST,
-        'x-rapidapi-key': API_KEY
-    })
+    url = f'https://site.api.espn.com/apis/site/v2/sports/cricket/{ESPN_LEAGUE_ID}/summary?event={espn_id}'
+    req = urllib.request.Request(url, headers=ESPN_HEADERS)
     try:
         response = urllib.request.urlopen(req, timeout=10)
         data = json.loads(response.read())
-        _disk_write(path, data)
+        _disk_write(api_path, data)
         return data
     except urllib.error.HTTPError as e:
-        print(f'API HTTP error {e.code}: {path}')
-        # 429 = quota exceeded, 404 = endpoint not available — serve stale if we have it
-        if e.code in (429, 404):
-            return _disk_read_stale(path)
-        return {}
+        print(f'ESPN API HTTP error {e.code}: {url}')
+        return _disk_read_stale(api_path)
     except Exception as e:
-        print(f'API error: {e}')
-        return _disk_read_stale(path)
+        print(f'ESPN API error: {e}')
+        return _disk_read_stale(api_path)
 
-def calculate_points(player_name, is_captain, innings_list):
-    runs = wickets = catches = runouts = stumpings = 0
-    for innings in innings_list:
-        for b in innings.get('batsman', []):
-            if b['name'] == player_name:
-                runs += b.get('runs', 0)
-        for b in innings.get('bowler', []):
-            if b['name'] == player_name:
-                wickets += b.get('wickets', 0)
-        for b in innings.get('batsman', []):
-            outdec = b.get('outdec', '')
-            if not outdec:
-                continue
-            if f'c {player_name} b' in outdec:
-                catches += 1
-            if f'c & b {player_name}' in outdec or f'c and b {player_name}' in outdec:
-                catches += 1
-            if f'st {player_name}' in outdec:
-                stumpings += 1
-            if 'run out' in outdec and player_name in outdec:
-                runouts += 1
+def calculate_points(player_name, is_captain, match_stats):
+    """Calculate fantasy points from ESPN match stats dict."""
+    bat = match_stats.get('batting',  {}).get(player_name, {})
+    bwl = match_stats.get('bowling',  {}).get(player_name, {})
+    fld = match_stats.get('fielding', {}).get(player_name, {})
+
+    runs      = bat.get('runs', 0)
+    wickets   = bwl.get('wickets', 0)
+    catches   = fld.get('catches', 0)
+    stumpings = fld.get('stumpings', 0)
+    runouts   = fld.get('runouts', 0)
+
     pts = runs + (wickets * 20) + (catches * 10) + (runouts * 10) + (stumpings * 10)
     if runs >= 100:
         pts += 20
@@ -282,6 +416,7 @@ def calculate_points(player_name, is_captain, innings_list):
         pts += 20
     if is_captain:
         pts *= 2
+
     return {
         'name': player_name,
         'runs': runs,
@@ -290,14 +425,14 @@ def calculate_points(player_name, is_captain, innings_list):
         'runouts': runouts,
         'stumpings': stumpings,
         'points': pts,
-        'is_captain': is_captain
+        'is_captain': is_captain,
     }
 
-def score_team(players, captain, innings_list):
+def score_team(players, captain, match_stats):
     results = []
     total = 0
     for p in players:
-        r = calculate_points(p, p == captain, innings_list)
+        r = calculate_points(p, p == captain, match_stats)
         results.append(r)
         total += r['points']
     return results, total
@@ -306,196 +441,51 @@ def serve_frontend():
     return send_from_directory('.', 'index.html')
 @app.route('/api/fixtures')
 def get_fixtures():
-    now = time.time()
-    if _fixtures_cache['data'] and now - _fixtures_cache['ts'] < CACHE_TTL:
-        return jsonify(_fixtures_cache['data'])
-
-    data = cricbuzz_get(f'/series/v1/{IPL_SERIES_ID}')
-    matches = []
-    for item in data.get('matchDetails', []):
-        md = item.get('matchDetailsMap', {})
-        for m in md.get('match', []):
-            mi = m.get('matchInfo', {})
-            ms = m.get('matchScore', {})
-            t1 = mi.get('team1', {})
-            t2 = mi.get('team2', {})
-            t1score = ms.get('team1Score', {}).get('inngs1', {})
-            t2score = ms.get('team2Score', {}).get('inngs1', {})
-            start_ms = int(mi.get('startDate', 0))
-            dt_ist = datetime.fromtimestamp(start_ms / 1000, tz=IST)
-            matches.append({
-                'match_id': str(mi.get('matchId', '')),
-                'desc': mi.get('matchDesc', ''),
-                'team1': t1.get('teamName', ''),
-                'team1_short': t1.get('teamSName', ''),
-                'team1_runs': t1score.get('runs', '-'),
-                'team1_wkts': t1score.get('wickets', '-'),
-                'team1_overs': t1score.get('overs', '-'),
-                'team2': t2.get('teamName', ''),
-                'team2_short': t2.get('teamSName', ''),
-                'team2_runs': t2score.get('runs', '-'),
-                'team2_wkts': t2score.get('wickets', '-'),
-                'team2_overs': t2score.get('overs', '-'),
-                'status': mi.get('status', ''),
-                'state': mi.get('state', ''),
-                'start_date': mi.get('startDate', ''),
-                'start_ist': dt_ist.strftime('%-d %b · %-I:%M %p IST'),
-                'venue': mi.get('venueInfo', {}).get('ground', ''),
-                'city': mi.get('venueInfo', {}).get('city', ''),
-                'locked': 1 if str(mi.get('matchId', '')) in LOCKED_MATCH_IDS else 0,
-            })
-    matches.sort(key=lambda x: int(x['start_date']) if x['start_date'] else 0)
-
-    if matches:
-        _fixtures_cache['data'] = matches
-        _fixtures_cache['ts'] = now
-    elif _fixtures_cache['data']:
-        # API failed (rate limit / outage) — return last good response
-        return jsonify(_fixtures_cache['data'])
-    else:
-        # Fall back to seeded DB fixtures (Cricbuzz unavailable / wrong series ID)
-        conn = get_db()
-        rows = conn.execute('SELECT * FROM fixtures ORDER BY start_date').fetchall()
-        conn.close()
-        if rows:
-            return jsonify([dict(r) for r in rows])
-
-    return jsonify(matches)
+    conn = get_db()
+    rows = conn.execute('SELECT * FROM fixtures ORDER BY start_date').fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
 
 @app.route('/api/players/<match_id>')
 def get_players(match_id):
-    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
-    if not data.get('scorecard'):
+    data = espn_get(match_id)
+    m = _parse_espn_match(data)
+    if not m or not m.get('players'):
         return jsonify({'error': 'No player data yet.', 'players': []})
-    p = _parse_players_from_scorecard(data)
     return jsonify({
-        'players': p['players'],
-        'team1': p['team1'],
-        'team1_short': p['team1_short'],
-        'team1_players': p['team1_players'],
-        'team2': p['team2'],
-        'team2_short': p['team2_short'],
-        'team2_players': p['team2_players'],
-        'status': data.get('status', ''),
-        'match_id': match_id
+        'players': m['players'],
+        'team1': m['team1'], 'team1_short': m['team1_short'], 'team1_players': m['team1_players'],
+        'team2': m['team2'], 'team2_short': m['team2_short'], 'team2_players': m['team2_players'],
+        'status': m['status'],
+        'match_id': match_id,
     })
 
 @app.route('/api/match/<match_id>/players')
 def get_match_players(match_id):
-    """Fetch players from scorecard + commentary + squads in parallel and merge."""
+    """Fetch players from ESPN rosters for this match."""
     now = time.time()
     cached = _match_players_cache.get(match_id)
     if cached and now - cached['ts'] < CACHE_TTL:
         return jsonify(cached['data'])
 
-    with ThreadPoolExecutor(max_workers=3) as ex:
-        f_hscard = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/hscard')
-        f_comm   = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/comm')
-        f_squads = ex.submit(cricbuzz_get, f'/mcenter/v1/{match_id}/squads')
-        hscard_data = f_hscard.result()
-        comm_data   = f_comm.result()
-        squads_data = f_squads.result()
-
-    # ── 1. Squads: full squad as base (all 15–16 players per team) ──────────
-    t1_name, t1_short, t2_name, t2_short = '', '', '', ''
-    t1_players, t2_players = {}, {}   # name → role
-
-    squads = squads_data.get('squads', [])
-    def _extract_squad(entry):
-        name  = (entry.get('teamName') or entry.get('team', {}).get('name', '') or '').strip()
-        short = (entry.get('teamShortName') or entry.get('shortName') or
-                 entry.get('team', {}).get('shortName', '') or '').strip()
-        # squad field may be: a list of players directly, or a dict with 'players' key
-        raw = entry.get('players') or entry.get('squad') or []
-        if isinstance(raw, dict):
-            raw = raw.get('players') or raw.get('squad') or []
-        players = {}
-        for p in (raw or []):
-            if not isinstance(p, dict):
-                continue
-            n = (p.get('name') or p.get('playerName') or '').strip()
-            r = (p.get('role') or p.get('playerRole') or '')
-            if n:
-                players[n] = r
-        return name, short, players
-
-    if len(squads) >= 1:
-        t1_name, t1_short, t1_players = _extract_squad(squads[0])
-    if len(squads) >= 2:
-        t2_name, t2_short, t2_players = _extract_squad(squads[1])
-
-    # ── 2. Commentary: parse Playing XI announcement (highest priority) ──────
-    # Typical format: "Team Name (Playing XI): P1, P2, P3, ..."
-    comm_xi = {}  # team_name_fragment → set of player names
-    for item in (comm_data.get('commentaryList') or []):
-        text = item.get('commText', '')
-        m = re.search(r'(.+?)\s*\(Playing (?:XI|11)\)\s*:\s*(.+)', text, re.IGNORECASE)
-        if m:
-            team_frag = m.group(1).strip()
-            names = [n.strip() for n in re.split(r',\s*', m.group(2)) if n.strip()]
-            comm_xi[team_frag] = names
-
-    def _assign_comm_xi(comm_xi, t1_name, t1_short, t2_name, t2_short):
-        xi1, xi2 = [], []
-        for frag, names in comm_xi.items():
-            # Match fragment against known team names (case-insensitive partial match)
-            def matches(frag, name, short):
-                f = frag.lower(); n = name.lower(); s = short.lower()
-                return f in n or n in f or (s and f in s) or (s and s in f)
-            if matches(frag, t1_name, t1_short):
-                xi1 = names
-            elif matches(frag, t2_name, t2_short):
-                xi2 = names
-        return xi1, xi2
-
-    xi1, xi2 = _assign_comm_xi(comm_xi, t1_name, t1_short, t2_name, t2_short)
-
-    # ── 3. Scorecard: players who've already batted/bowled ───────────────────
-    scorecard = hscard_data.get('scorecard', [])
-    sc_t1, sc_t2 = set(), set()
-    if len(scorecard) >= 1:
-        for b in scorecard[0].get('batsman', []): sc_t1.add(b['name'])
-        for b in scorecard[0].get('bowler', []):  sc_t2.add(b['name'])
-    if len(scorecard) >= 2:
-        for b in scorecard[1].get('batsman', []): sc_t2.add(b['name'])
-        for b in scorecard[1].get('bowler', []):  sc_t1.add(b['name'])
-
-    # Fall back to scorecard team names if squads didn't yield them
-    if not t1_name and scorecard:
-        t1_name  = scorecard[0].get('batteamname', '')
-        t1_short = scorecard[0].get('batteamsname', '')
-    if not t2_name and len(scorecard) > 1:
-        t2_name  = scorecard[1].get('batteamname', '')
-        t2_short = scorecard[1].get('batteamsname', '')
-
-    # ── 4. Merge: comm XI > squads > scorecard ───────────────────────────────
-    def _build_final(xi, squad_dict, sc_set):
-        final = {}
-        if xi:
-            for n in xi:
-                final[n] = squad_dict.get(n, '')
-        elif squad_dict:
-            final = dict(squad_dict)
-        else:
-            final = {n: '' for n in sc_set}
-        # Always add scorecard players (impact subs / anyone who played)
-        for n in sc_set:
-            if n not in final:
-                final[n] = squad_dict.get(n, '')
-        return final
-
-    final_t1 = _build_final(xi1, t1_players, sc_t1)
-    final_t2 = _build_final(xi2, t2_players, sc_t2)
+    data = espn_get(match_id)
+    m = _parse_espn_match(data)
+    if not m or not m.get('players'):
+        return jsonify({
+            'team1': '', 'team1_short': '', 'team1_players': [],
+            'team2': '', 'team2_short': '', 'team2_players': [],
+            'players': [],
+        })
 
     result = {
-        'team1': t1_name, 'team1_short': t1_short,
-        'team1_players': [{'name': n, 'role': r} for n, r in sorted(final_t1.items())],
-        'team2': t2_name, 'team2_short': t2_short,
-        'team2_players': [{'name': n, 'role': r} for n, r in sorted(final_t2.items())],
-        'players': sorted(set(final_t1) | set(final_t2)),
+        'team1': m['team1'], 'team1_short': m['team1_short'],
+        'team1_players': [{'name': n, 'role': ''} for n in m['team1_players']],
+        'team2': m['team2'], 'team2_short': m['team2_short'],
+        'team2_players': [{'name': n, 'role': ''} for n in m['team2_players']],
+        'players': m['players'],
     }
     if result['players']:
-        _match_players_cache[match_id] = {'data': result, 'ts': time.time()}
+        _match_players_cache[match_id] = {'data': result, 'ts': now}
     return jsonify(result)
 
 @app.route('/api/draft/<match_id>')
@@ -679,25 +669,26 @@ def save_selection():
 
 @app.route('/api/score/<match_id>')
 def score_match(match_id):
-    """Calculate fantasy points for a saved selection using the Cricbuzz scorecard."""
+    """Calculate fantasy points for a saved selection using ESPN scorecard."""
     if match_id in LOCKED_MATCH_IDS:
         return jsonify({'error': 'This match is locked — use /api/season for historical scores'}), 403
-    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
-    scorecard = data.get('scorecard', [])
-    status = data.get('status', '')
+    espn_data = espn_get(match_id)
+    match_stats = _parse_espn_match(espn_data)
     conn = get_db()
     row = conn.execute('SELECT * FROM selections WHERE match_id = ?', (match_id,)).fetchone()
     conn.close()
     if not row:
         return jsonify({'error': 'No picks saved for this match yet'}), 404
-    if not scorecard:
-        return jsonify({'error': 'Cricbuzz scorecard not available yet — try again after the match'}), 404
-    amitabh = json.loads(row['amitabh_players'])
-    amitabh_cap = row['amitabh_captain']
-    shivam = json.loads(row['shivam_players'])
-    shivam_cap = row['shivam_captain']
-    a_players, a_total = score_team(amitabh, amitabh_cap, scorecard)
-    s_players, s_total = score_team(shivam, shivam_cap, scorecard)
+    if not match_stats:
+        return jsonify({'error': 'ESPN scorecard not available yet — try again after the match'}), 404
+    espn_names = list(match_stats.get('batting', {}).keys())
+    amitabh = [_resolve_name(p, espn_names) for p in json.loads(row['amitabh_players'])]
+    amitabh_cap = _resolve_name(row['amitabh_captain'], espn_names)
+    shivam = [_resolve_name(p, espn_names) for p in json.loads(row['shivam_players'])]
+    shivam_cap = _resolve_name(row['shivam_captain'], espn_names)
+    a_players, a_total = score_team(amitabh, amitabh_cap, match_stats)
+    s_players, s_total = score_team(shivam, shivam_cap, match_stats)
+    status = match_stats.get('status', '')
     # Invalidate season cache so standings update
     _season_cache['data'] = None
     _season_cache['ts'] = 0
@@ -712,25 +703,26 @@ def score_match(match_id):
 
 @app.route('/api/live/<match_id>')
 def get_live_score(match_id):
-    data = cricbuzz_get(f'/mcenter/v1/{match_id}/hscard')
-    scorecard = data.get('scorecard', [])
-    status = data.get('status', '')
-    is_complete = data.get('isMatchComplete', False)
+    espn_data = espn_get(match_id)
+    match_stats = _parse_espn_match(espn_data)
     conn = get_db()
     row = conn.execute('SELECT * FROM selections WHERE match_id = ?', (match_id,)).fetchone()
     conn.close()
     if not row:
         return jsonify({'error': 'No selections found'})
-    amitabh = json.loads(row['amitabh_players'])
-    amitabh_cap = row['amitabh_captain']
-    shivam = json.loads(row['shivam_players'])
-    shivam_cap = row['shivam_captain']
-    a_players, a_total = score_team(amitabh, amitabh_cap, scorecard)
-    s_players, s_total = score_team(shivam, shivam_cap, scorecard)
+    if not match_stats:
+        return jsonify({'error': 'ESPN scorecard not available yet'})
+    espn_names = list(match_stats.get('batting', {}).keys())
+    amitabh = [_resolve_name(p, espn_names) for p in json.loads(row['amitabh_players'])]
+    amitabh_cap = _resolve_name(row['amitabh_captain'], espn_names)
+    shivam = [_resolve_name(p, espn_names) for p in json.loads(row['shivam_players'])]
+    shivam_cap = _resolve_name(row['shivam_captain'], espn_names)
+    a_players, a_total = score_team(amitabh, amitabh_cap, match_stats)
+    s_players, s_total = score_team(shivam, shivam_cap, match_stats)
     return jsonify({
         'match_id': match_id,
-        'status': status,
-        'is_complete': is_complete,
+        'status': match_stats.get('status', ''),
+        'is_complete': match_stats.get('is_complete', False),
         'amitabh': {'total': a_total, 'players': a_players, 'captain': amitabh_cap},
         'shivam': {'total': s_total, 'players': s_players, 'captain': shivam_cap},
         'leader': 'amitabh' if a_total > s_total else 'shivam',
@@ -865,19 +857,22 @@ def get_season():
         mid = row['match_id']
         if mid in past_ids:
             continue
-        data = cricbuzz_get(f'/mcenter/v1/{mid}/hscard')
-        scorecard = data.get('scorecard', [])
-        if not scorecard:
+        espn_data = espn_get(mid)
+        match_stats = _parse_espn_match(espn_data)
+        if not match_stats:
             continue
-        amitabh = json.loads(row['amitabh_players'])
-        shivam = json.loads(row['shivam_players'])
-        a_players, at = score_team(amitabh, row['amitabh_captain'], scorecard)
-        s_players, st = score_team(shivam, row['shivam_captain'], scorecard)
+        espn_names = list(match_stats.get('batting', {}).keys())
+        amitabh = [_resolve_name(p, espn_names) for p in json.loads(row['amitabh_players'])]
+        a_cap = _resolve_name(row['amitabh_captain'], espn_names)
+        shivam = [_resolve_name(p, espn_names) for p in json.loads(row['shivam_players'])]
+        s_cap = _resolve_name(row['shivam_captain'], espn_names)
+        a_players, at = score_team(amitabh, a_cap, match_stats)
+        s_players, st = score_team(shivam, s_cap, match_stats)
         a_total += at
         s_total += st
         past_matches.append({
             'match_id': mid,
-            'desc': KNOWN_MATCH_LABELS.get(mid, data.get('status', '')),
+            'desc': KNOWN_MATCH_LABELS.get(mid, match_stats.get('status', '')),
             'amitabh_total': at,
             'shivam_total': st,
             'amitabh_players': a_players,
