@@ -8,6 +8,13 @@ import time
 import re
 from datetime import datetime, timezone, timedelta
 
+DATABASE_URL = os.environ.get('DATABASE_URL')
+USE_PG = bool(DATABASE_URL)
+
+if USE_PG:
+    import psycopg2
+    import psycopg2.extras
+
 # Disk cache directory — persists across restarts and survives in-memory eviction
 os.makedirs('cache', exist_ok=True)
 
@@ -68,9 +75,45 @@ KNOWN_MATCH_LABELS = {
 LOCKED_MATCH_IDS = {'149618', '149629', '149640', '149651', '149662', '149673'}
 
 def get_db():
-    conn = sqlite3.connect('fantasy.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    if USE_PG:
+        conn = psycopg2.connect(DATABASE_URL)
+        # Monkey-patch conn.execute() to use RealDictCursor and translate ? → %s
+        _cursor_factory = conn.cursor
+        def _execute(sql, params=None):
+            sql = sql.replace('?', '%s')
+            cur = _cursor_factory(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(sql, params or ())
+            return cur
+        conn.execute = _execute
+        return conn
+    else:
+        conn = sqlite3.connect('fantasy.db')
+        conn.row_factory = sqlite3.Row
+        return conn
+
+def _upsert_selection(conn, match_id, a_players, a_cap, s_players, s_cap, ts, ignore_if_exists=False):
+    """Insert or replace a selections row. Works for both SQLite and PostgreSQL."""
+    if USE_PG:
+        on_conflict = 'ON CONFLICT (match_id) DO NOTHING' if ignore_if_exists else (
+            'ON CONFLICT (match_id) DO UPDATE SET '
+            'amitabh_players=EXCLUDED.amitabh_players, '
+            'amitabh_captain=EXCLUDED.amitabh_captain, '
+            'shivam_players=EXCLUDED.shivam_players, '
+            'shivam_captain=EXCLUDED.shivam_captain, '
+            'created_at=EXCLUDED.created_at'
+        )
+        conn.execute(
+            f'INSERT INTO selections (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at) '
+            f'VALUES (%s, %s, %s, %s, %s, %s) {on_conflict}',
+            (match_id, a_players, a_cap, s_players, s_cap, ts)
+        )
+    else:
+        verb = 'INSERT OR IGNORE' if ignore_if_exists else 'INSERT OR REPLACE'
+        conn.execute(
+            f'{verb} INTO selections (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (match_id, a_players, a_cap, s_players, s_cap, ts)
+        )
 
 # Called at module level so gunicorn (which skips __main__) still creates tables
 def _ensure_db():
@@ -86,72 +129,53 @@ def _ensure_db():
         team1_runs TEXT DEFAULT '-', team1_wkts TEXT DEFAULT '-', team1_overs TEXT DEFAULT '-',
         team2_runs TEXT DEFAULT '-', team2_wkts TEXT DEFAULT '-', team2_overs TEXT DEFAULT '-'
     )''')
+    conn.commit()
     conn.execute('''CREATE TABLE IF NOT EXISTS selections (
         match_id TEXT PRIMARY KEY, amitabh_players TEXT, amitabh_captain TEXT,
         shivam_players TEXT, shivam_captain TEXT, created_at INTEGER)''')
+    conn.commit()
     conn.execute('''CREATE TABLE IF NOT EXISTS drafts (
         match_id TEXT PRIMARY KEY, first_pick TEXT DEFAULT 'amitabh',
         picks TEXT DEFAULT '[]', amitabh_captain TEXT DEFAULT '',
         shivam_captain TEXT DEFAULT '', is_complete INTEGER DEFAULT 0,
         created_at INTEGER)''')
+    conn.commit()
     # Add team-choice columns (safe to run multiple times — ignored if already exist)
-    try:
-        conn.execute('ALTER TABLE drafts ADD COLUMN amitabh_team_choice TEXT DEFAULT ""')
-    except Exception:
-        pass
-    try:
-        conn.execute('ALTER TABLE drafts ADD COLUMN shivam_team_choice TEXT DEFAULT ""')
-    except Exception:
-        pass
+    for col in ('amitabh_team_choice', 'shivam_team_choice'):
+        try:
+            conn.execute(f"ALTER TABLE drafts ADD COLUMN {col} TEXT DEFAULT ''")
+            conn.commit()
+        except Exception:
+            if USE_PG:
+                conn.rollback()
     # Add locked column to fixtures (safe if already exists)
     try:
         conn.execute('ALTER TABLE fixtures ADD COLUMN locked INTEGER DEFAULT 0')
+        conn.commit()
     except Exception:
-        pass
+        if USE_PG:
+            conn.rollback()
     # Lock matches 1-6 — their data is hardcoded and must not be edited
     conn.execute("""UPDATE fixtures SET locked=1 WHERE match_id IN
         ('149618','149629','149640','149651','149662','149673')""")
-    # One-time data entry: match 7 CSK vs PBKS selections
-    conn.execute('''INSERT OR IGNORE INTO selections
-        (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)''', (
-        '149684',
+    conn.commit()
+    # One-time data entry: match 7 CSK vs PBKS selections (ignore if already exists)
+    _upsert_selection(
+        conn, '149684',
         json.dumps(['Cooper Connolly', 'Shivam Dube', 'Priyansh Arya', 'Prabhsimran Singh', 'Kartik Sharma']),
         'Cooper Connolly',
         json.dumps(['Sanju Samson', 'Shreyas Iyer', 'Marco Jansen', 'Yuzvendra Chahal', 'Marcus Stoinis']),
         'Sanju Samson',
         1743696000,
-    ))
+        ignore_if_exists=True,
+    )
     conn.commit()
     conn.close()
 
 _ensure_db()
 
 def init_db():
-    conn = get_db()
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS selections (
-            match_id TEXT PRIMARY KEY,
-            amitabh_players TEXT,
-            amitabh_captain TEXT,
-            shivam_players TEXT,
-            shivam_captain TEXT,
-            created_at INTEGER
-        )
-    ''')
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS drafts (
-            match_id TEXT PRIMARY KEY,
-            first_pick TEXT DEFAULT 'amitabh',
-            picks TEXT DEFAULT '[]',
-            amitabh_captain TEXT DEFAULT '',
-            shivam_captain TEXT DEFAULT '',
-            is_complete INTEGER DEFAULT 0,
-            created_at INTEGER
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    _ensure_db()
 
 def get_last_match_info():
     """Last completed match result, used to determine first pick in draft."""
@@ -666,10 +690,7 @@ def set_captain(match_id):
     if a_cap and s_cap:
         a_players = [p['player'] for p in picks if p['user'] == 'amitabh']
         s_players = [p['player'] for p in picks if p['user'] == 'shivam']
-        conn.execute('''INSERT OR REPLACE INTO selections
-            (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)''',
-            (match_id, json.dumps(a_players), a_cap, json.dumps(s_players), s_cap, int(time.time())))
+        _upsert_selection(conn, match_id, json.dumps(a_players), a_cap, json.dumps(s_players), s_cap, int(time.time()))
         conn.execute('UPDATE drafts SET is_complete = 1 WHERE match_id = ?', (match_id,))
         conn.commit()
     result = build_draft_response(dict(row2), picks)
@@ -712,12 +733,7 @@ def save_selection():
     if len(amitabh) != 5 or len(shivam) != 5:
         return jsonify({'error': 'Must select exactly 5 players each'}), 400
     conn = get_db()
-    conn.execute('''
-        INSERT OR REPLACE INTO selections
-        (match_id, amitabh_players, amitabh_captain, shivam_players, shivam_captain, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (match_id, json.dumps(amitabh), amitabh_cap,
-          json.dumps(shivam), shivam_cap, int(time.time())))
+    _upsert_selection(conn, match_id, json.dumps(amitabh), amitabh_cap, json.dumps(shivam), shivam_cap, int(time.time()))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
