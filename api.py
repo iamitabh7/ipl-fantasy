@@ -91,6 +91,101 @@ def get_db():
         conn.row_factory = sqlite3.Row
         return conn
 
+def _epoch_ms(y, mo, d, h=19, mi=30):
+    return int(datetime(y, mo, d, h, mi, tzinfo=IST).timestamp() * 1000)
+
+def _ist_label(y, mo, d, h=19, mi=30):
+    dt = datetime(y, mo, d, h, mi, tzinfo=IST)
+    return dt.strftime('%-d %b · %-I:%M %p IST')
+
+_FIXTURES = [
+    ('149618', 'Match 1',  'Royal Challengers Bengaluru', 'RCB', 'Sunrisers Hyderabad',   'SRH',  2026,3,28,19,30, 'M. Chinnaswamy Stadium',                     'Bengaluru',    'Royal Challengers Bengaluru won by 6 wkts',   'Complete'),
+    ('149629', 'Match 2',  'Mumbai Indians',              'MI',  'Kolkata Knight Riders',  'KKR',  2026,3,29,19,30, 'Wankhede Stadium',                            'Mumbai',       'Mumbai Indians won by 6 wkts',                'Complete'),
+    ('149640', 'Match 3',  'Rajasthan Royals',            'RR',  'Chennai Super Kings',    'CSK',  2026,3,30,19,30, 'Barsapara Cricket Stadium',                   'Guwahati',     'Rajasthan Royals won by 8 wkts',              'Complete'),
+    ('149651', 'Match 4',  'Gujarat Titans',              'GT',  'Punjab Kings',           'PBKS', 2026,3,31,19,30, 'Narendra Modi Stadium',                       'Ahmedabad',    'Punjab Kings won by 3 wkts',                  'Complete'),
+    ('149662', 'Match 5',  'Lucknow Super Giants',        'LSG', 'Delhi Capitals',         'DC',   2026,4,1, 19,30, 'Ekana Cricket Stadium',                       'Lucknow',      'Delhi Capitals won by 6 wkts',                'Complete'),
+    ('149673', 'Match 6',  'Kolkata Knight Riders',       'KKR', 'Sunrisers Hyderabad',    'SRH',  2026,4,2, 19,30, 'Eden Gardens',                                'Kolkata',      'Sunrisers Hyderabad won by 85 runs',          'Complete'),
+    ('149684', 'Match 7',  'Chennai Super Kings',         'CSK', 'Punjab Kings',           'PBKS', 2026,4,3, 19,30, 'MA Chidambaram Stadium',                      'Chennai',      'Punjab Kings won by 5 wkts',                  'Complete'),
+    ('149695', 'Match 8',  'Delhi Capitals',              'DC',  'Mumbai Indians',         'MI',   2026,4,4, 15,30, 'Arun Jaitley Stadium',                        'Delhi',        'Delhi Capitals won by 6 wkts',                'Complete'),
+    ('149706', 'Match 9',  'Gujarat Titans',              'GT',  'Rajasthan Royals',       'RR',   2026,4,4, 19,30, 'Narendra Modi Stadium',                       'Ahmedabad',    'Rajasthan Royals won by 6 runs',              'Complete'),
+    ('149717', 'Match 10', 'Sunrisers Hyderabad',         'SRH', 'Lucknow Super Giants',   'LSG',  2026,4,5, 15,30, 'Rajiv Gandhi International Cricket Stadium',  'Hyderabad',    'Lucknow Super Giants won by 5 wkts',          'Complete'),
+    ('149728', 'Match 11', 'Royal Challengers Bengaluru', 'RCB', 'Chennai Super Kings',    'CSK',  2026,4,5, 19,30, 'M. Chinnaswamy Stadium',                      'Bengaluru',    'Royal Challengers Bengaluru won by 43 runs',  'Complete'),
+    ('149739', 'Match 12', 'Kolkata Knight Riders',       'KKR', 'Punjab Kings',           'PBKS', 2026,4,6, 19,30, 'Eden Gardens',                                'Kolkata',      'Match abandoned - no result',                 'Complete'),
+    ('149750', 'Match 13', 'Rajasthan Royals',            'RR',  'Mumbai Indians',         'MI',   2026,4,7, 19,30, 'Barsapara Cricket Stadium',                   'Guwahati',     'Rajasthan Royals won by 27 runs (DLS)',        'Complete'),
+    ('149761', 'Match 14', 'Delhi Capitals',              'DC',  'Gujarat Titans',         'GT',   2026,4,8, 19,30, 'Arun Jaitley Stadium',                        'Delhi',        'Gujarat Titans won by 1 run',                 'Complete'),
+    ('149772', 'Match 15', 'Kolkata Knight Riders',       'KKR', 'Lucknow Super Giants',   'LSG',  2026,4,9, 19,30, 'Eden Gardens',                                'Kolkata',      'Lucknow Super Giants won by 3 wickets',       'Complete'),
+    ('149783', 'Match 16', 'Rajasthan Royals',            'RR',  'Royal Challengers Bengaluru', 'RCB', 2026,4,10,19,30, 'Sawai Mansingh Stadium',                  'Jaipur',       'Royal Challengers Bengaluru won by 11 runs',  'Complete'),
+    ('149794', 'Match 17', 'Punjab Kings',                'PBKS','Sunrisers Hyderabad',    'SRH',  2026,4,11,15,30, 'HPCA Stadium',                                'Dharamsala',   '', 'Upcoming'),
+    ('149805', 'Match 18', 'Chennai Super Kings',         'CSK', 'Delhi Capitals',         'DC',   2026,4,12,15,30, 'MA Chidambaram Stadium',                      'Chennai',      '', 'Upcoming'),
+    ('149816', 'Match 19', 'Lucknow Super Giants',        'LSG', 'Gujarat Titans',         'GT',   2026,4,12,19,30, 'Ekana Cricket Stadium',                       'Lucknow',      '', 'Upcoming'),
+    ('149827', 'Match 20', 'Mumbai Indians',              'MI',  'Royal Challengers Bengaluru', 'RCB', 2026,4,13,19,30, 'Wankhede Stadium',                        'Mumbai',       '', 'Upcoming'),
+]
+
+_SCORES = {
+    '149618': ('203','4', '15.4','201','9', '15.4'),
+    '149629': ('224','4', '19.1','220','4', '19.1'),
+    '149640': ('128','2', '12.1','127','-','12.1'),
+    '149651': ('165','7', '19.1','162','6', '19.1'),
+    '149662': ('141','9', '17.1','145','4', '17.1'),
+    '149673': ('141','10','20',  '226','8', '20'),
+    '149684': ('209','5', '18.4','210','5', '18.4'),
+    '149695': ('164','4', '18.1','162','6', '20'),
+    '149706': ('204','8', '20',  '210','6', '20'),
+    '149717': ('156','9', '20',  '160','5', '19.5'),
+    '149728': ('250','3', '20',  '207','10','19.4'),
+    '149739': ('25', '2', '3.4', '-',  '-', '-'),
+    '149750': ('150','3', '11',  '123','9', '11'),
+    '149761': ('209','8', '20',  '210','4', '20'),
+    '149772': ('181','4', '20',  '182','7', '20'),
+    '149783': ('202','4', '18',  '201','8', '20'),
+}
+
+_LOCKED_IDS = {'149618','149629','149640','149651','149662','149673'}
+
+def _seed_fixtures(conn):
+    """Upsert all fixture rows and scores. Safe to call multiple times."""
+    for row in _FIXTURES:
+        mid, desc, t1, t1s, t2, t2s, y, mo, d, h, mi, venue, city, status, state = row
+        start_ms  = _epoch_ms(y, mo, d, h, mi)
+        start_str = _ist_label(y, mo, d, h, mi)
+        locked    = 1 if mid in _LOCKED_IDS else 0
+        if USE_PG:
+            conn.execute(
+                '''INSERT INTO fixtures
+                   (match_id, desc, team1, team1_short, team2, team2_short,
+                    start_date, start_ist, venue, city, status, state, locked,
+                    team1_runs, team1_wkts, team1_overs,
+                    team2_runs, team2_wkts, team2_overs)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'-','-','-','-','-','-')
+                   ON CONFLICT (match_id) DO UPDATE SET
+                     desc=EXCLUDED.desc, team1=EXCLUDED.team1, team1_short=EXCLUDED.team1_short,
+                     team2=EXCLUDED.team2, team2_short=EXCLUDED.team2_short,
+                     start_date=EXCLUDED.start_date, start_ist=EXCLUDED.start_ist,
+                     venue=EXCLUDED.venue, city=EXCLUDED.city,
+                     status=EXCLUDED.status, state=EXCLUDED.state, locked=EXCLUDED.locked''',
+                (mid, desc, t1, t1s, t2, t2s, start_ms, start_str, venue, city, status, state, locked),
+            )
+        else:
+            conn.execute(
+                '''INSERT OR REPLACE INTO fixtures
+                   (match_id, desc, team1, team1_short, team2, team2_short,
+                    start_date, start_ist, venue, city, status, state, locked,
+                    team1_runs, team1_wkts, team1_overs,
+                    team2_runs, team2_wkts, team2_overs)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'-','-','-','-','-','-')''',
+                (mid, desc, t1, t1s, t2, t2s, start_ms, start_str, venue, city, status, state, locked),
+            )
+    conn.commit()
+    for mid, (t1r, t1w, t1o, t2r, t2w, t2o) in _SCORES.items():
+        conn.execute(
+            'UPDATE fixtures SET team1_runs=%s,team1_wkts=%s,team1_overs=%s,team2_runs=%s,team2_wkts=%s,team2_overs=%s WHERE match_id=%s'
+            if USE_PG else
+            'UPDATE fixtures SET team1_runs=?,team1_wkts=?,team1_overs=?,team2_runs=?,team2_wkts=?,team2_overs=? WHERE match_id=?',
+            (t1r, t1w, t1o, t2r, t2w, t2o, mid),
+        )
+    conn.commit()
+    print(f'Fixtures seeded: {len(_FIXTURES)} rows, {len(_SCORES)} scores')
+
 def _upsert_selection(conn, match_id, a_players, a_cap, s_players, s_cap, ts, ignore_if_exists=False):
     """Insert or replace a selections row. Works for both SQLite and PostgreSQL."""
     if USE_PG:
@@ -126,10 +221,15 @@ def _ensure_db():
         start_date INTEGER, start_ist TEXT,
         venue TEXT, city TEXT,
         status TEXT, state TEXT,
+        locked INTEGER DEFAULT 0,
         team1_runs TEXT DEFAULT '-', team1_wkts TEXT DEFAULT '-', team1_overs TEXT DEFAULT '-',
         team2_runs TEXT DEFAULT '-', team2_wkts TEXT DEFAULT '-', team2_overs TEXT DEFAULT '-'
     )''')
     conn.commit()
+    # Auto-seed fixture schedule on first run (empty table = fresh database)
+    row = conn.execute('SELECT COUNT(*) AS cnt FROM fixtures').fetchone()
+    if row['cnt'] == 0:
+        _seed_fixtures(conn)
     conn.execute('''CREATE TABLE IF NOT EXISTS selections (
         match_id TEXT PRIMARY KEY, amitabh_players TEXT, amitabh_captain TEXT,
         shivam_players TEXT, shivam_captain TEXT, created_at INTEGER)''')
