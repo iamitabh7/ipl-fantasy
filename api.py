@@ -74,22 +74,37 @@ KNOWN_MATCH_LABELS = {
 # Matches 1-6: hardcoded in /api/season — picks and scores cannot be changed
 LOCKED_MATCH_IDS = {'149618', '149629', '149640', '149651', '149662', '149673'}
 
+class _PGConn:
+    """Wrapper around a psycopg2 connection that mirrors sqlite3's interface.
+
+    Translates ? placeholders → %s and uses RealDictCursor so rows are
+    accessible by column name, matching sqlite3.Row behaviour.
+    """
+    def __init__(self):
+        self._conn = psycopg2.connect(DATABASE_URL)
+
+    def execute(self, sql, params=None):
+        sql = sql.replace('?', '%s')
+        cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params or ())
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+
 def get_db():
     if USE_PG:
-        conn = psycopg2.connect(DATABASE_URL)
-        # Monkey-patch conn.execute() to use RealDictCursor and translate ? → %s
-        _cursor_factory = conn.cursor
-        def _execute(sql, params=None):
-            sql = sql.replace('?', '%s')
-            cur = _cursor_factory(cursor_factory=psycopg2.extras.RealDictCursor)
-            cur.execute(sql, params or ())
-            return cur
-        conn.execute = _execute
-        return conn
-    else:
-        conn = sqlite3.connect('fantasy.db')
-        conn.row_factory = sqlite3.Row
-        return conn
+        return _PGConn()
+    conn = sqlite3.connect('fantasy.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def _epoch_ms(y, mo, d, h=19, mi=30):
     return int(datetime(y, mo, d, h, mi, tzinfo=IST).timestamp() * 1000)
