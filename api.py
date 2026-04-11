@@ -10,6 +10,10 @@ from datetime import datetime, timezone, timedelta
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 USE_PG = bool(DATABASE_URL)
+print(f"[startup] DATABASE_URL set: {bool(DATABASE_URL)}")
+print(f"[startup] Using: {'PostgreSQL' if DATABASE_URL else 'SQLite'}")
+if DATABASE_URL:
+    print(f"[startup] DATABASE_URL prefix: {DATABASE_URL[:30]}...")
 
 if USE_PG:
     import psycopg2
@@ -1100,6 +1104,16 @@ def get_season():
     _season_cache['data'] = result
     _season_cache['ts'] = time.time()
     return jsonify(result)
+
+@app.route('/api/debug')
+def debug_info():
+    db_url = os.environ.get('DATABASE_URL')
+    return jsonify({
+        'database_url_set': bool(db_url),
+        'database_url_prefix': (db_url[:30] + '...') if db_url else None,
+        'using': 'PostgreSQL' if db_url else 'SQLite',
+        'use_pg_flag': USE_PG,
+    })
 
 if __name__ == '__main__':
     init_db()
