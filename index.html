@@ -654,7 +654,7 @@ async function loadFixtures() {
         <div class="fixture-top">
           <div>
             <div class="fixture-teams">${m.team1_short} vs ${m.team2_short}</div>
-            <div class="fixture-desc">${m.desc}${m.city ? ' · ' + m.city : ''}${m.start_ist ? ' · ' + m.start_ist : ''}</div>
+            <div class="fixture-desc">${m.match_desc}${m.city ? ' · ' + m.city : ''}${m.start_ist ? ' · ' + m.start_ist : ''}</div>
           </div>
           <div class="${statusBadgeClass}" style="${abandonedStyle}">${statusBadge}</div>
         </div>

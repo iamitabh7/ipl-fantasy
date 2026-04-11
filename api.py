@@ -171,13 +171,13 @@ def _seed_fixtures(conn):
         if USE_PG:
             conn.execute(
                 '''INSERT INTO fixtures
-                   (match_id, desc, team1, team1_short, team2, team2_short,
+                   (match_id, match_desc, team1, team1_short, team2, team2_short,
                     start_date, start_ist, venue, city, status, state, locked,
                     team1_runs, team1_wkts, team1_overs,
                     team2_runs, team2_wkts, team2_overs)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'-','-','-','-','-','-')
                    ON CONFLICT (match_id) DO UPDATE SET
-                     desc=EXCLUDED.desc, team1=EXCLUDED.team1, team1_short=EXCLUDED.team1_short,
+                     match_desc=EXCLUDED.match_desc, team1=EXCLUDED.team1, team1_short=EXCLUDED.team1_short,
                      team2=EXCLUDED.team2, team2_short=EXCLUDED.team2_short,
                      start_date=EXCLUDED.start_date, start_ist=EXCLUDED.start_ist,
                      venue=EXCLUDED.venue, city=EXCLUDED.city,
@@ -187,7 +187,7 @@ def _seed_fixtures(conn):
         else:
             conn.execute(
                 '''INSERT OR REPLACE INTO fixtures
-                   (match_id, desc, team1, team1_short, team2, team2_short,
+                   (match_id, match_desc, team1, team1_short, team2, team2_short,
                     start_date, start_ist, venue, city, status, state, locked,
                     team1_runs, team1_wkts, team1_overs,
                     team2_runs, team2_wkts, team2_overs)
@@ -234,7 +234,7 @@ def _ensure_db():
     conn = get_db()
     conn.execute('''CREATE TABLE IF NOT EXISTS fixtures (
         match_id TEXT PRIMARY KEY,
-        desc TEXT,
+        match_desc TEXT,
         team1 TEXT, team1_short TEXT,
         team2 TEXT, team2_short TEXT,
         start_date INTEGER, start_ist TEXT,
